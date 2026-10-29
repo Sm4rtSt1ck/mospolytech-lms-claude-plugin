@@ -1,0 +1,7 @@
+[package]
+name = "mospolytech-gost"
+version = "0.1.0"
+entrypoint = "lib.typ"
+authors = ["Sm4rtSt1ck"]
+license = "MIT"
+description = "Оформление отчётов по ГОСТ 7.32-2017 и методичке кафедры ИКТ Московского Политеха"

@@ -1,0 +1,15 @@
+{
+  "name": "mospolytech",
+  "owner": {
+    "name": "Sm4rtSt1ck",
+    "url": "https://github.com/Sm4rtSt1ck"
+  },
+  "description": "Плагины для студентов Московского Политеха",
+  "plugins": [
+    {
+      "name": "mospolytech-lms",
+      "source": "./plugins/mospolytech-lms",
+      "description": "Лабораторные в LMS Мосполитеха: от задания до сдачи"
+    }
+  ]
+}

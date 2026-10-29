@@ -1,0 +1,15 @@
+{
+  "mcpServers": {
+    "moodle": {
+      "command": "${CLAUDE_PLUGIN_DATA}/bin/moodle-mcp",
+      "args": [],
+      "env": {
+        "MOODLE_URL": "${user_config.moodle_url}",
+        "MOODLE_TOKEN": "${user_config.moodle_token}",
+        "MOODLE_DISABLE_TOOLS": "send_message,create_forum_discussion,reply_to_discussion",
+        "MOODLE_TIMEZONE": "Europe/Moscow",
+        "SSL_CERT_FILE": "${CLAUDE_PLUGIN_DATA}/ca-bundle.pem"
+      }
+    }
+  }
+}

@@ -1,0 +1,33 @@
+# Настройки плагина mospolytech-lms по умолчанию, одинаковые у всех.
+# Чтобы поменять что-то для себя, создайте config.yaml в рабочей папке с нужными ключами — его значения важнее.
+# Личные данные студента — profile.yaml в рабочей папке. Адрес LMS и токен — в настройках плагина (/plugin → Configure).
+
+university:
+  name: Московский политехнический университет
+  city: Москва
+
+output:
+  # typst-pdf | docx | docx+pdf. Требования конкретного курса/работы важнее этой настройки.
+  default_format: typst-pdf
+  # Имя файла, если курс не требует своего. Поля: {surname} {group} {course_short} {lab_number}
+  filename_pattern: "{surname}_{group}_{course_short}_ЛР{lab_number}"
+
+typst:
+  # Шаблон — локальный пакет templates/typst/local/mospolytech-gost/<версия>/ внутри плагина
+  package: "@local/mospolytech-gost:0.1.0"
+  # Правила оформления — скилл mospolytech-lms:gost-typst
+
+submission:
+  # До подтверждения в LMS ничего не загружается — даже черновик. Claude показывает ссылку на готовую
+  # работу и спрашивает, отправлять ли.
+  # confirm-then-submit — после «да» работа сразу отправляется на проверку;
+  # draft-only — после «да» загружается черновиком, на проверку пользователь отправляет сам в LMS.
+  mode: confirm-then-submit
+
+models:
+  # Сбор кеша курса и чтение Telegram — агенты lms-scout и lms-telegram-reader.
+  scout: haiku
+  # Выполнение и оформление работы — агент lab-solver.
+  solver: opus
+  # medium — обычная лабораторная; high — большая работа (курсовая, много кода или расчётов).
+  solver_effort: medium

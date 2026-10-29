@@ -1,0 +1,50 @@
+{
+  "name": "mospolytech-lms",
+  "displayName": "Мосполитех LMS",
+  "version": "0.4.0",
+  "description": "Выполнение и сдача лабораторных в LMS Московского Политеха (online.mospolytech.ru): контекст курса, отчёт по ГОСТ в Typst, отправка после подтверждения",
+  "author": {
+    "name": "Sm4rtSt1ck",
+    "url": "https://github.com/Sm4rtSt1ck"
+  },
+  "homepage": "https://github.com/Sm4rtSt1ck/mospolytech-lms-claude-plugin",
+  "repository": "https://github.com/Sm4rtSt1ck/mospolytech-lms-claude-plugin",
+  "license": "MIT",
+  "keywords": [
+    "moodle",
+    "mospolytech",
+    "lms",
+    "typst",
+    "gost"
+  ],
+  "userConfig": {
+    "workspace_dir": {
+      "type": "directory",
+      "title": "Рабочая папка",
+      "description": "Где хранить профиль студента, кеш курсов и выполненные работы (documents/). Лучше запускать Claude Code из этой папки.",
+      "required": true
+    },
+    "moodle_url": {
+      "type": "string",
+      "title": "Адрес LMS",
+      "description": "Адрес Moodle без завершающего слэша",
+      "default": "https://online.mospolytech.ru"
+    },
+    "moodle_token": {
+      "type": "string",
+      "title": "Токен LMS",
+      "description": "Токен веб-сервиса Moodle. Проще всего получить скриптом login: путь к нему подскажет Claude при первом запуске",
+      "sensitive": true
+    },
+    "submit_confirmation": {
+      "type": "string",
+      "title": "Подтверждение отправки",
+      "description": "ask — системное окно подтверждения перед каждой отправкой ответа в LMS; off — только вопрос Claude в чате",
+      "options": [
+        "ask",
+        "off"
+      ],
+      "default": "ask"
+    }
+  }
+}

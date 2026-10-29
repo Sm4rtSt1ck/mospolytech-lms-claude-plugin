@@ -1,0 +1,40 @@
+{
+  "description": "Установка инструментов и проверка токена при старте; защита загрузки и отправки ответов в LMS",
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "startup|resume|clear",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/scripts/session-start.sh\"",
+            "timeout": 300,
+            "statusMessage": "mospolytech-lms: проверка инструментов и токена LMS"
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "^mcp__(plugin_mospolytech-lms_)?moodle__upload_file$",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/scripts/guard-upload.sh\"",
+            "onFailure": "block"
+          }
+        ]
+      },
+      {
+        "matcher": "^mcp__(plugin_mospolytech-lms_)?moodle__submit_assignment$",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/scripts/guard-submit.sh\"",
+            "onFailure": "block"
+          }
+        ]
+      }
+    ]
+  }
+}

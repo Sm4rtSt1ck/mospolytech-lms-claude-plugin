@@ -1,0 +1,36 @@
+#!/usr/bin/env bash
+# Compiles a report with the @local/mospolytech-gost template.
+# usage: typst-gost <report.typ> [output.pdf | preview-{p}.png] [extra `typst compile` flags]
+# --root is the report's folder, so the report references its files as path("assets/x.png").
+# Typst and the font settings come from the plugin data directory prepared by the SessionStart hook.
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+
+# The Bash tool does not receive CLAUDE_PLUGIN_DATA; find the data directory by its id prefix.
+DATA="${CLAUDE_PLUGIN_DATA:-}"
+if [[ -z "$DATA" ]]; then
+  for d in "$HOME"/.claude/plugins/data/mospolytech-lms*; do
+    if [[ -x "$d/bin/typst" || -x "$d/bin/typst.exe" ]]; then DATA="$d"; break; fi
+  done
+fi
+[[ -n "$DATA" ]] || { echo "typst-gost: Typst не установлен — перезапустите сессию Claude Code, чтобы плагин его скачал" >&2; exit 1; }
+
+LMS_FONT_PATHS=""
+[[ -f "$DATA/env" ]] && source "$DATA/env"
+
+SRC="${1:?usage: typst-gost <report.typ> [output] [flags]}"; shift
+
+native() { if command -v cygpath >/dev/null; then cygpath -w "$1"; else printf '%s' "$1"; fi; }
+
+font_args=()
+IFS=: read -ra font_dirs <<< "$LMS_FONT_PATHS"
+for f in ${font_dirs[@]+"${font_dirs[@]}"}; do
+  [[ -d "$f" ]] && font_args+=(--font-path "$(native "$f")")
+done
+
+exec "$DATA/bin/typst" compile \
+  --root "$(native "$(dirname "$SRC")")" \
+  --package-path "$(native "$ROOT/templates/typst")" \
+  ${font_args[@]+"${font_args[@]}"} \
+  "$SRC" "$@"
