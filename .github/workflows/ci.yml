@@ -3,6 +3,8 @@ name: CI
 on:
   push:
   pull_request:
+  # Manual run also checks the connection to the real LMS (job "lms-connection").
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -47,3 +49,68 @@ jobs:
             else { Write-Host "ok   $($f.FullName)" }
           }
           if ($failed) { exit 1 }
+
+  mcp-start:
+    name: MCP server starts in Claude Code (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - name: Install Claude Code
+        run: npm install -g @anthropic-ai/claude-code
+      # --plugin-dir loads the plugin as "mospolytech-lms@inline", whose data directory is this one;
+      # installing there reproduces what the SessionStart hook does for a real install.
+      - name: Install moodle-mcp into the plugin data directory
+        run: |
+          CLAUDE_PLUGIN_ROOT="$PWD/plugins/mospolytech-lms" \
+          CLAUDE_PLUGIN_DATA="$HOME/.claude/plugins/data/mospolytech-lms-inline" \
+          bash plugins/mospolytech-lms/scripts/install.sh
+      # Claude Code spawns the server from the plugin's .mcp.json exactly as for a user, including
+      # the ${CLAUDE_PLUGIN_DATA} substitution and the command without .exe on Windows.
+      - name: Claude Code connects to the plugin's MCP server
+        run: |
+          out="$(claude --plugin-dir plugins/mospolytech-lms mcp list 2>&1)"
+          echo "$out"
+          grep -q 'plugin:mospolytech-lms:moodle.*Connected' <<< "$out"
+
+  lms-connection:
+    name: LMS connection (${{ matrix.os }})
+    if: github.event_name == 'workflow_dispatch'
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v7
+      - name: Install moodle-mcp
+        run: |
+          CLAUDE_PLUGIN_ROOT="$PWD/plugins/mospolytech-lms" CLAUDE_PLUGIN_DATA="$RUNNER_TEMP/data" \
+          bash plugins/mospolytech-lms/scripts/install.sh
+      # A login with a made-up account: "invalid username or password" proves that TLS (including the
+      # missing GlobalSign intermediate) and the token endpoint work on this OS. No real credentials.
+      - name: Reach token.php over TLS
+        run: |
+          [[ "$RUNNER_OS" == Linux ]] && export SSL_CERT_FILE="$RUNNER_TEMP/data/ca-bundle.pem"
+          out="$("$RUNNER_TEMP/data/bin/moodle-mcp" auth --url https://online.mospolytech.ru \
+                 --username ci-probe-nonexistent-user --password not-a-password --output json 2>&1 || true)"
+          echo "$out"
+          if grep -qi 'invalid username or password' <<< "$out"; then
+            echo "LMS reachable, TLS ok"
+          elif grep -qiE 'certificate|tls|ssl' <<< "$out"; then
+            echo "::error::TLS problem talking to the LMS"; exit 1
+          else
+            echo "::error::LMS not reachable from this runner (network, geo-blocking or LMS down)"; exit 1
+          fi

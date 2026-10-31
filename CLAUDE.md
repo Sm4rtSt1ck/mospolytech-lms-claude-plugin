@@ -59,6 +59,10 @@ plugins/mospolytech-lms/
 
 `bash tests/run.sh` — основной набор: синтаксис скриптов, защитники хуков, SessionStart с реальной установкой и проверкой контрольных сумм, сборка отчёта по шаблону. Без токена и без обращений к LMS. Тот же скрипт CI (`.github/workflows/ci.yml`) гоняет на Linux, macOS и Windows (Git Bash), там же проверяется синтаксис `.ps1` и манифест. Новое поведение скриптов — новый случай в `tests/run.sh`.
 
+В CI есть ещё два задания:
+- `mcp-start` (каждый push, три ОС): ставит moodle-mcp в папку данных `--plugin-dir`-плагина и проверяет `claude --plugin-dir plugins/mospolytech-lms mcp list` → `plugin:mospolytech-lms:moodle … Connected`. Это тот же запуск, что у пользователя: подстановка `${CLAUDE_PLUGIN_DATA}`, команда без `.exe` на Windows. Входа в Claude не требует.
+- `lms-connection` (только вручную: Actions → CI → Run workflow, или `gh workflow run ci.yml`): `moodle-mcp auth` с выдуманным логином к настоящей LMS на трёх ОС. Ответ «invalid username or password» = TLS и token.php работают. Обращается к серверу университета — не включай его на каждый push.
+
 ```sh
 claude plugin validate plugins/mospolytech-lms      # манифест, MCP-конфиг, пути
 claude plugin validate .                            # маркетплейс
