@@ -99,9 +99,22 @@ jobs:
         run: |
           CLAUDE_PLUGIN_ROOT="$PWD/plugins/mospolytech-lms" CLAUDE_PLUGIN_DATA="$RUNNER_TEMP/data" \
           bash plugins/mospolytech-lms/scripts/install.sh
+      # moodle-mcp reports both a network failure and a TLS failure as "error sending request",
+      # so first check plain reachability without certificate verification.
+      - name: Is the LMS reachable from this runner
+        id: reach
+        run: |
+          code="$(curl -sk --max-time 20 -o /dev/null -w '%{http_code}' https://online.mospolytech.ru/login/token.php || true)"
+          echo "HTTP status without TLS verification: ${code:-none}"
+          if [[ "$code" =~ ^[1-5][0-9][0-9]$ ]]; then echo "reachable=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "reachable=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::online.mospolytech.ru is not reachable from GitHub runners (likely blocks foreign networks) — TLS was not checked on $RUNNER_OS"
+          fi
       # A login with a made-up account: "invalid username or password" proves that TLS (including the
       # missing GlobalSign intermediate) and the token endpoint work on this OS. No real credentials.
       - name: Reach token.php over TLS
+        if: steps.reach.outputs.reachable == 'true'
         run: |
           [[ "$RUNNER_OS" == Linux ]] && export SSL_CERT_FILE="$RUNNER_TEMP/data/ca-bundle.pem"
           out="$("$RUNNER_TEMP/data/bin/moodle-mcp" auth --url https://online.mospolytech.ru \
@@ -109,8 +122,6 @@ jobs:
           echo "$out"
           if grep -qi 'invalid username or password' <<< "$out"; then
             echo "LMS reachable, TLS ok"
-          elif grep -qiE 'certificate|tls|ssl' <<< "$out"; then
-            echo "::error::TLS problem talking to the LMS"; exit 1
           else
-            echo "::error::LMS not reachable from this runner (network, geo-blocking or LMS down)"; exit 1
+            echo "::error::the LMS answers plain HTTPS but moodle-mcp cannot talk to it — most likely the certificate chain"; exit 1
           fi
