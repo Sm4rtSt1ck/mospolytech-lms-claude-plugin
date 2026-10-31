@@ -24,19 +24,19 @@ winget install oschwartz10612.Poppler   # Windows
 
 1. Добавьте маркетплейс, установите плагин и укажите **рабочую папку** — там будут профиль, кеш курсов и выполненные работы. Остальные настройки можно оставить по умолчанию.
 
-   В Claude Code в терминале — после `install` откроется окно настроек, рабочую папку вводите там:
-
-   ```
-   /plugin marketplace add Sm4rtSt1ck/mospolytech-lms-claude-plugin
-   /plugin install mospolytech-lms@mospolytech
-   ```
-
-   В расширении VS Code команды `/plugin` нет: используйте окно «Manage plugins» (форма настроек появится после установки) или обычный терминал. Команда `claude plugin install` в терминале окна настроек не открывает, поэтому рабочая папка передаётся флагом:
+   Проще всего — одной командой в обычном терминале: она сама добавит маркетплейс, поставит плагин и запишет рабочую папку:
 
    ```sh
-   claude plugin marketplace add Sm4rtSt1ck/mospolytech-lms-claude-plugin
-   claude plugin install mospolytech-lms@mospolytech --config workspace_dir=<путь к рабочей папке>
+   claude plugin install mospolytech-lms --marketplace Sm4rtSt1ck/mospolytech-lms-claude-plugin --config workspace_dir=<путь к рабочей папке>
    ```
+
+   Или внутри Claude Code в терминале — после установки откроется окно настроек, рабочую папку вводите там:
+
+   ```
+   /plugin install mospolytech-lms --marketplace Sm4rtSt1ck/mospolytech-lms-claude-plugin
+   ```
+
+   В расширении VS Code команды `/plugin` нет — используйте команду в терминале выше или окно «Manage plugins».
 
 2. Позже настройки можно поменять: `/plugin configure mospolytech-lms@mospolytech`, шестерёнка у плагина в «Manage plugins» или `claude plugin configure`.
 
@@ -70,7 +70,7 @@ winget install oschwartz10612.Poppler   # Windows
 
 - **При старте сессии** — скачивает moodle-mcp и Typst под вашу платформу, готовит рабочую папку и профиль, проверяет токен LMS и сообщает о проблемах.
 - **Перед загрузкой файла в LMS** — запрещает загрузку файлов не из папки работ, а также пустых и несуществующих.
-- **Перед отправкой ответа** — запрещает пустую отправку и показывает системное окно подтверждения Claude Code (отключается настройкой «Подтверждение отправки» = `off`).
+- **Перед отправкой ответа** — запрещает пустую отправку и показывает системное окно подтверждения Claude Code (отключается настройкой «Подтверждение отправки» = «не спрашивать»).
 
 ## Как проходит работа
 

@@ -1,7 +1,7 @@
 {
   "name": "mospolytech-lms",
   "displayName": "Мосполитех LMS",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "description": "Выполнение и сдача лабораторных в LMS Московского Политеха (online.mospolytech.ru): контекст курса, отчёт по ГОСТ в Typst, отправка после подтверждения",
   "author": {
     "name": "Sm4rtSt1ck",
@@ -27,7 +27,7 @@
     "moodle_url": {
       "type": "string",
       "title": "Адрес LMS",
-      "description": "Адрес Moodle без завершающего слэша",
+      "description": "Адрес Moodle без завершающего слэша. Менять не нужно — поле на случай, если адрес LMS изменится",
       "default": "https://online.mospolytech.ru"
     },
     "moodle_token": {
@@ -39,12 +39,12 @@
     "submit_confirmation": {
       "type": "string",
       "title": "Подтверждение отправки",
-      "description": "ask — системное окно подтверждения перед каждой отправкой ответа в LMS; off — только вопрос Claude в чате",
+      "description": "«спрашивать» — перед каждой отправкой ответа в LMS Claude Code показывает своё окно подтверждения; «не спрашивать» — остаётся только вопрос Claude в чате",
       "options": [
-        "ask",
-        "off"
+        "спрашивать",
+        "не спрашивать"
       ],
-      "default": "ask"
+      "default": "спрашивать"
     }
   }
 }

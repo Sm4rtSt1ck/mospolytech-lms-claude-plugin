@@ -59,7 +59,8 @@ expect "text submission asks"     ask   guard-submit.sh '{"tool_input":{"assignm
 expect "finalize only asks"       ask   guard-submit.sh '{"tool_input":{"assignment_id":1,"finalize":true}}'
 expect "empty text denied"        deny  guard-submit.sh '{"tool_input":{"assignment_id":1,"text":""}}'
 expect "nothing denied"           deny  guard-submit.sh '{"tool_input":{"assignment_id":1}}'
-CLAUDE_PLUGIN_OPTION_SUBMIT_CONFIRMATION=off expect "confirmation off" allow guard-submit.sh '{"tool_input":{"assignment_id":1,"text":"x"}}'
+CLAUDE_PLUGIN_OPTION_SUBMIT_CONFIRMATION="не спрашивать" expect "confirmation off" allow guard-submit.sh '{"tool_input":{"assignment_id":1,"text":"x"}}'
+CLAUDE_PLUGIN_OPTION_SUBMIT_CONFIRMATION=off expect "confirmation off (old value)" allow guard-submit.sh '{"tool_input":{"assignment_id":1,"text":"x"}}'
 
 echo "== session-start (downloads moodle-mcp and Typst, verifies checksums)"
 export CLAUDE_PLUGIN_ROOT="$PLUGIN" CLAUDE_PLUGIN_DATA="$TMP/data"

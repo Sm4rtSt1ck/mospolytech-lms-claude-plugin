@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # PreToolUse guard for moodle submit_assignment: refuses an empty submission and, unless the
-# user turned it off (submit_confirmation = off), asks for confirmation in Claude Code's own
-# permission dialog — independent of what the model decided.
+# user turned it off (submit_confirmation = «не спрашивать»; older installs saved "off"), asks
+# for confirmation in Claude Code's own permission dialog — independent of what the model decided.
 set -uo pipefail
 source "$(dirname "${BASH_SOURCE[0]}")/hook-lib.sh"
 
@@ -15,7 +15,7 @@ if [[ -z "$item" || "$item" == null ]] && [[ -z "$text" ]]; then
   [[ "$finalize" == true ]] || decide deny "Пустой ответ: нет ни файла (item_id), ни текста."
 fi
 
-[[ "${CLAUDE_PLUGIN_OPTION_SUBMIT_CONFIRMATION:-ask}" == off ]] && exit 0
+case "${CLAUDE_PLUGIN_OPTION_SUBMIT_CONFIRMATION:-}" in "не спрашивать"|off) exit 0 ;; esac
 
 desc=""
 [[ -n "$item" && "$item" != null ]] && desc+="; файлы из черновика $item"
