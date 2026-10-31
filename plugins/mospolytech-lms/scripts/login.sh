@@ -18,9 +18,10 @@ fi
 [[ -s "$DATA/ca-bundle.pem" && "$(uname -s)" == Linux ]] && export SSL_CERT_FILE="$DATA/ca-bundle.pem"
 
 echo "Вход в LMS $URL: введите логин и пароль (пароль нигде не сохраняется)."
-out="$("$DATA/bin/moodle-mcp" auth --url "$URL" --output env)"
-token="$(printf '%s\n' "$out" | sed -n 's/^\(export \)\{0,1\}MOODLE_TOKEN=//p' | tr -d "\"'\r" | head -1)"
-[[ -n "$token" ]] || { echo "Не удалось получить токен." >&2; exit 1; }
+# Prompts go to the terminal; stdout carries Moodle's token.php JSON: {"token":"…","privatetoken":…}
+out="$("$DATA/bin/moodle-mcp" auth --url "$URL" --output json)"
+token="$(printf '%s' "$out" | tr -d '\r\n' | sed -n 's/.*"token"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p')"
+[[ -n "$token" ]] || { echo "Не удалось получить токен: в ответе LMS нет поля token." >&2; exit 1; }
 
 values="{\"moodle_token\":\"$token\",\"moodle_url\":\"$URL\"}"
 if command -v claude >/dev/null; then

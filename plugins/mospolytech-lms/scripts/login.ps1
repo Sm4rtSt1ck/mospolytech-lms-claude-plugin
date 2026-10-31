@@ -16,10 +16,11 @@ if (-not $Data) {
 }
 
 Write-Host "Вход в LMS ${Url}: введите логин и пароль (пароль нигде не сохраняется)."
-$out = & (Join-Path $Data 'bin\moodle-mcp.exe') auth --url $Url --output env
-$m = $out | Select-String '^(export )?MOODLE_TOKEN=(.+)$' | Select-Object -First 1
-if (-not $m) { Write-Error 'Не удалось получить токен.' }
-$token = $m.Matches[0].Groups[2].Value.Trim('"', "'")
+# Prompts go to the terminal; stdout carries Moodle's token.php JSON: {"token":"…","privatetoken":…}
+$out = & (Join-Path $Data 'bin\moodle-mcp.exe') auth --url $Url --output json
+if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+$token = (($out -join '') | ConvertFrom-Json).token
+if (-not $token) { Write-Error 'Не удалось получить токен: в ответе LMS нет поля token.' }
 
 $values = @{ moodle_token = $token; moodle_url = $Url } | ConvertTo-Json -Compress
 if (Get-Command claude -ErrorAction SilentlyContinue) {

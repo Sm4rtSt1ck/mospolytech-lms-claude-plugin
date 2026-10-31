@@ -100,6 +100,32 @@ else
   grep -q 'path(' "$TMP/bad.err" && pass "string path rejected" || fail "string path rejected" "$(cat "$TMP/bad.err")"
 fi
 
+echo "== login (fake moodle-mcp and claude, no network)"
+FAKE="$TMP/fake"
+mkdir -p "$FAKE/data/bin" "$FAKE/path"
+# Same stdout as `moodle-mcp auth --output json`: Moodle's token.php response.
+cat > "$FAKE/data/bin/moodle-mcp" <<'EOF'
+#!/usr/bin/env bash
+[[ " $* " == *" --output json "* ]] || { echo "expected --output json, got: $*" >&2; exit 2; }
+printf '{"token":"0123456789abcdef0123456789abcdef","privatetoken":"should-not-be-used"}\n'
+EOF
+# Records what login.sh tries to save; FAKE_CLAUDE_FAIL makes the save fail.
+cat > "$FAKE/path/claude" <<EOF
+#!/usr/bin/env bash
+[[ -n "\${FAKE_CLAUDE_FAIL:-}" ]] && exit 1
+cat > "$FAKE/saved.json"
+EOF
+chmod +x "$FAKE/data/bin/moodle-mcp" "$FAKE/path/claude"
+out="$(PATH="$FAKE/path:$PATH" CLAUDE_PLUGIN_DATA="$FAKE/data" bash "$SCRIPTS/login.sh" https://lms.example 2>&1 </dev/null)"
+if grep -q '"moodle_token":"0123456789abcdef0123456789abcdef"' "$FAKE/saved.json" 2>/dev/null \
+   && grep -q '"moodle_url":"https://lms.example"' "$FAKE/saved.json"; then
+  pass "token parsed and saved"
+else
+  fail "token parsed and saved" "$out | saved: $(cat "$FAKE/saved.json" 2>/dev/null)"
+fi
+out="$(PATH="$FAKE/path:$PATH" FAKE_CLAUDE_FAIL=1 CLAUDE_PLUGIN_DATA="$FAKE/data" bash "$SCRIPTS/login.sh" 2>&1 </dev/null)"
+[[ "$out" == *0123456789abcdef0123456789abcdef* ]] && pass "token shown when saving fails" || fail "token shown when saving fails" "$out"
+
 echo
 if ((failures)); then echo "$failures check(s) failed"; exit 1; fi
 echo "all checks passed"
