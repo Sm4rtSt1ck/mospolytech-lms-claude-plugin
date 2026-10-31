@@ -13,7 +13,7 @@
 
 Нужен [Claude Code](https://code.claude.com) 2.1.275 или новее и учётная запись в LMS. В Windows — ещё [Git for Windows](https://git-scm.com/download/win): хуки плагина выполняются в Git Bash.
 
-Рекомендуется **poppler** — без него Claude не сможет посмотреть страницы PDF: ни готового отчёта, ни заданий, выложенных сканом:
+Остальное плагин ставит сам. По желанию — **poppler**: с ним Claude смотрит PDF чуть быстрее; без него страницы PDF и сканы заданий рисуются в картинки через Typst (команда `pdf-pages`):
 
 ```sh
 sudo apt install poppler-utils          # Debian, Ubuntu

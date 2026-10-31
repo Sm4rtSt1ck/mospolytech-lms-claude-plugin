@@ -1,7 +1,7 @@
 {
   "name": "mospolytech-lms",
   "displayName": "Мосполитех LMS",
-  "version": "0.4.1",
+  "version": "0.5.0",
   "description": "Выполнение и сдача лабораторных в LMS Московского Политеха (online.mospolytech.ru): контекст курса, отчёт по ГОСТ в Typst, отправка после подтверждения",
   "author": {
     "name": "Sm4rtSt1ck",

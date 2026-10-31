@@ -24,7 +24,7 @@ expect() {
 }
 
 echo "== syntax"
-for f in "$SCRIPTS"/*.sh "$PLUGIN/bin/typst-gost" "$REPO/tests/run.sh"; do
+for f in "$SCRIPTS"/*.sh "$PLUGIN/bin/typst-gost" "$PLUGIN/bin/pdf-pages" "$REPO/tests/run.sh"; do
   if bash -n "$f"; then pass "bash -n ${f#"$REPO"/}"; else fail "bash -n ${f#"$REPO"/}"; fi
 done
 
@@ -98,6 +98,29 @@ if bash "$PLUGIN/bin/typst-gost" "$DOC/bad.typ" "$DOC/bad.pdf" 2>"$TMP/bad.err";
   fail "string path rejected"
 else
   grep -q 'path(' "$TMP/bad.err" && pass "string path rejected" || fail "string path rejected" "$(cat "$TMP/bad.err")"
+fi
+
+echo "== pdf-pages"
+PNG="$TMP/png"
+if bash "$PLUGIN/bin/pdf-pages" "$DOC/report.pdf" "$PNG/all" >/dev/null 2>"$TMP/pp.err"; then
+  n=$(ls "$PNG/all" | grep -c '^page-[0-9]*\.png$')
+  ((n >= 3)) && pass "all pages rendered ($n)" || fail "all pages rendered" "only $n pages"
+else
+  fail "all pages rendered" "$(cat "$TMP/pp.err")"
+fi
+bash "$PLUGIN/bin/pdf-pages" "$DOC/report.pdf" "$PNG/one" 2 >/dev/null 2>&1 && [[ "$(ls "$PNG/one")" == page-2.png ]] \
+  && pass "single page" || fail "single page" "$(ls "$PNG/one" 2>&1)"
+bash "$PLUGIN/bin/pdf-pages" "$DOC/report.pdf" "$PNG/x" 999 >/dev/null 2>&1 && fail "missing page is an error" || pass "missing page is an error"
+bash "$PLUGIN/bin/pdf-pages" "$TMP/nope.pdf" "$PNG/x" >/dev/null 2>&1 && fail "missing file is an error" || pass "missing file is an error"
+
+# The PowerShell twins are what Claude's PowerShell tool runs on Windows.
+if command -v powershell.exe >/dev/null && command -v cygpath >/dev/null; then
+  echo "== PowerShell scripts"
+  ps() { powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$(cygpath -w "$1")" "${@:2}"; }
+  if ps "$PLUGIN/bin/pdf-pages.ps1" "$(cygpath -w "$DOC/report.pdf")" "$(cygpath -w "$PNG/ps")" 1-2 >/dev/null 2>"$TMP/ps.err" \
+     && [[ -f "$PNG/ps/page-1.png" && -f "$PNG/ps/page-2.png" ]]; then pass "pdf-pages.ps1"; else fail "pdf-pages.ps1" "$(cat "$TMP/ps.err")"; fi
+  if ps "$PLUGIN/bin/typst-gost.ps1" "$(cygpath -w "$DOC/report.typ")" "$(cygpath -w "$DOC/report-ps.pdf")" >/dev/null 2>"$TMP/tg.err" \
+     && [[ -s "$DOC/report-ps.pdf" ]]; then pass "typst-gost.ps1"; else fail "typst-gost.ps1" "$(cat "$TMP/tg.err")"; fi
 fi
 
 echo "== login (fake moodle-mcp and claude, no network)"

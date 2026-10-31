@@ -1,0 +1,52 @@
+#!/usr/bin/env bash
+# Renders PDF pages to PNG with the plugin's Typst, so Claude can look at a PDF (a finished
+# report, a scanned assignment) without poppler.
+# usage: pdf-pages <file.pdf> <out-dir> [pages: 3 | 2-5 | all] [ppi, default 100]
+# Writes <out-dir>/page-<N>.png and prints their paths.
+set -euo pipefail
+
+PDF="${1:?usage: pdf-pages <file.pdf> <out-dir> [3 | 2-5 | all] [ppi]}"
+OUT="${2:?usage: pdf-pages <file.pdf> <out-dir> [3 | 2-5 | all] [ppi]}"
+RANGE="${3:-all}"
+PPI="${4:-100}"
+[[ -f "$PDF" ]] || { echo "pdf-pages: file not found: $PDF" >&2; exit 1; }
+
+# The Bash tool does not receive CLAUDE_PLUGIN_DATA; find the data directory by its id prefix.
+DATA="${CLAUDE_PLUGIN_DATA:-}"
+if [[ -z "$DATA" ]]; then
+  for d in "$HOME"/.claude/plugins/data/mospolytech-lms*; do
+    if [[ -x "$d/bin/typst" || -x "$d/bin/typst.exe" ]]; then DATA="$d"; break; fi
+  done
+fi
+[[ -n "$DATA" ]] || { echo "pdf-pages: Typst не установлен — перезапустите сессию Claude Code, чтобы плагин его скачал" >&2; exit 1; }
+
+case "$RANGE" in
+  all)          first=1; last=0 ;;
+  *-*)          first="${RANGE%-*}"; last="${RANGE#*-}" ;;
+  *)            first="$RANGE"; last="$RANGE" ;;
+esac
+[[ "$first" =~ ^[0-9]+$ && "$last" =~ ^[0-9]+$ && "$first" -ge 1 ]] || { echo "pdf-pages: bad page range: $RANGE" >&2; exit 2; }
+
+native() { if command -v cygpath >/dev/null; then cygpath -w "$1"; else printf '%s' "$1"; fi; }
+
+# Typst only reads files under --root, so the PDF goes into a scratch project next to the page source.
+WORK="$(mktemp -d)"
+trap 'rm -rf "$WORK"' EXIT
+cp "$PDF" "$WORK/in.pdf"
+mkdir -p "$OUT"
+
+p=$first
+while :; do
+  [[ "$last" -ne 0 && "$p" -gt "$last" ]] && break
+  printf '#set page(width: auto, height: auto, margin: 0pt)\n#image("in.pdf", page: %d)\n' "$p" > "$WORK/page.typ"
+  if ! "$DATA/bin/typst" compile --root "$(native "$WORK")" --ppi "$PPI" \
+       "$(native "$WORK/page.typ")" "$(native "$OUT/page-$p.png")" 2>"$WORK/err"; then
+    # With "all" the first missing page ends the document; anything else is a real error.
+    if [[ "$last" -eq 0 && "$p" -gt 1 ]]; then break; fi
+    cat "$WORK/err" >&2
+    exit 1
+  fi
+  echo "$OUT/page-$p.png"
+  p=$((p + 1))
+  [[ "$last" -eq 0 && "$p" -gt 200 ]] && { echo "pdf-pages: stopped after 200 pages" >&2; break; }
+done

@@ -99,7 +99,7 @@ fi
 context+=("mospolytech-lms: LMS ${URL} — ${lms_status}. Отчёты Typst собираются командой typst-gost. Получение токена: ${LOGIN_CMD}.")
 # Read shows PDF pages only with poppler; without it scans cannot be read at all.
 if ! command -v pdftoppm >/dev/null; then
-  context+=("mospolytech-lms: poppler (pdftoppm) не установлен — Read не покажет страницы PDF и сканы заданий. Готовый отчёт смотри через typst-gost → PNG; если задание — скан, попроси пользователя установить poppler (см. README плагина).")
+  context+=("mospolytech-lms: poppler не установлен — Read не покажет страницы PDF. Смотри PDF и сканы заданий командой pdf-pages <файл.pdf> <папка> [страницы] и читай получившиеся PNG.")
 fi
 
 ctx="$(printf '%s\n' "${context[@]}")"
