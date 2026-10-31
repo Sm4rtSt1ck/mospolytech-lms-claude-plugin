@@ -25,7 +25,7 @@ submission:
   mode: confirm-then-submit
 
 models:
-  # Сбор кеша курса и чтение Telegram — агенты lms-scout и lms-telegram-reader.
+  # Сбор кеша курса, журнала прошлых работ и чтение Telegram — агенты lms-scout, lab-history, lms-telegram-reader.
   scout: haiku
   # Выполнение и оформление работы — агент lab-solver.
   solver: opus
