@@ -28,6 +28,12 @@ for f in "$SCRIPTS"/*.sh "$PLUGIN/bin/typst-gost" "$PLUGIN/bin/pdf-pages" "$REPO
   if bash -n "$f"; then pass "bash -n ${f#"$REPO"/}"; else fail "bash -n ${f#"$REPO"/}"; fi
 done
 
+# Windows PowerShell 5.1 reads a .ps1 without BOM as ANSI and mangles the Russian text into a parse error.
+for f in "$PLUGIN"/bin/*.ps1 "$PLUGIN"/scripts/*.ps1; do
+  if [[ "$(head -c3 "$f" | od -An -tx1 | tr -d ' \n')" == efbbbf ]]; then pass "UTF-8 BOM ${f#"$REPO"/}"
+  else fail "UTF-8 BOM ${f#"$REPO"/}" "save as UTF-8 with BOM"; fi
+done
+
 echo "== guard-upload"
 WS="$TMP/ws"
 mkdir -p "$WS/documents/c1/lab-1" "$WS/works"

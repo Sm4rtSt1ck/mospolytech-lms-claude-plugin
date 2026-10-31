@@ -1,4 +1,4 @@
-# Renders PDF pages to PNG with the plugin's Typst (PowerShell tool on Windows), so Claude can look
+﻿# Renders PDF pages to PNG with the plugin's Typst (PowerShell tool on Windows), so Claude can look
 # at a PDF (a finished report, a scanned assignment) without poppler.
 # usage: pdf-pages.ps1 <file.pdf> <out-dir> [pages: 3 | 2-5 | all] [ppi, default 100]
 # Writes <out-dir>\page-<N>.png and prints their paths.

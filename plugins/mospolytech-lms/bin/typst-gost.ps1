@@ -1,4 +1,4 @@
-# Compiles a report with the @local/mospolytech-gost template (PowerShell tool on Windows).
+﻿# Compiles a report with the @local/mospolytech-gost template (PowerShell tool on Windows).
 # usage: typst-gost.ps1 <report.typ> [output.pdf | preview-{p}.png] [extra `typst compile` flags]
 # --root is the report's folder, so the report references its files as path("assets/x.png").
 $ErrorActionPreference = 'Stop'

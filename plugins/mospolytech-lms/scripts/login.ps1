@@ -1,4 +1,4 @@
-# Gets an LMS web-service token (asks for login and password in the terminal) and saves it to the
+﻿# Gets an LMS web-service token (asks for login and password in the terminal) and saves it to the
 # plugin's secure settings. Run it yourself in PowerShell: Claude's tools have no TTY to prompt.
 # usage: powershell -ExecutionPolicy Bypass -File login.ps1 [lms-url]
 $ErrorActionPreference = 'Stop'
