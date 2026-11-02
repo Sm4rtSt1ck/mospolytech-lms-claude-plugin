@@ -21,19 +21,19 @@
     "workspace_dir": {
       "type": "directory",
       "title": "Рабочая папка",
-      "description": "Где хранить профиль студента, кеш курсов и выполненные работы (documents/). Лучше запускать Claude Code из этой папки.",
+      "description": "Где хранить профиль студента, кеш курсов и выполненные работы (например: C:/University/). Лучше запускать Claude Code из этой папки.",
       "required": true
     },
     "moodle_url": {
       "type": "string",
       "title": "Адрес LMS",
-      "description": "Адрес Moodle без завершающего слэша. Менять не нужно — поле на случай, если адрес LMS изменится",
+      "description": "Адрес Moodle без завершающего слэша (по умолчанию: https://online.mospolytech.ru). Если адрес LMS изменился, укажите актуальный",
       "default": "https://online.mospolytech.ru"
     },
     "moodle_token": {
       "type": "string",
       "title": "Токен LMS",
-      "description": "Токен веб-сервиса Moodle. Проще всего получить скриптом login: путь к нему подскажет Claude при первом запуске",
+      "description": "Токен веб-сервиса Moodle. Проще всего получить скриптом login: путь к нему подскажет Claude после перезапуска",
       "sensitive": true
     },
     "submit_confirmation": {
