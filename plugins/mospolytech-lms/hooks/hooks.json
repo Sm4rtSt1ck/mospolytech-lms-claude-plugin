@@ -1,5 +1,5 @@
 {
-  "description": "Установка инструментов и проверка токена при старте; защита загрузки и отправки ответов в LMS",
+  "description": "Установка инструментов и проверка токена при старте; защита загрузки и отправки ответов в LMS; понятное окно подтверждения",
   "hooks": {
     "SessionStart": [
       {
@@ -32,6 +32,17 @@
             "type": "command",
             "command": "bash \"${CLAUDE_PLUGIN_ROOT}/scripts/guard-submit.sh\"",
             "onFailure": "block"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "^mcp__(plugin_mospolytech-lms_)?moodle__upload_file$",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/scripts/record-upload.sh\""
           }
         ]
       }

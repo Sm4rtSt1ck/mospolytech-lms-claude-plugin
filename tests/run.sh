@@ -62,6 +62,25 @@ expect "nothing denied"           deny  guard-submit.sh '{"tool_input":{"assignm
 CLAUDE_PLUGIN_OPTION_SUBMIT_CONFIRMATION="не спрашивать" expect "confirmation off" allow guard-submit.sh '{"tool_input":{"assignment_id":1,"text":"x"}}'
 CLAUDE_PLUGIN_OPTION_SUBMIT_CONFIRMATION=off expect "confirmation off (old value)" allow guard-submit.sh '{"tool_input":{"assignment_id":1,"text":"x"}}'
 
+echo "== confirmation dialog text"
+DLG="$TMP/dlg"
+mkdir -p "$DLG/data" "$WS/documents/42-kurs/pr-1"
+printf '{"assignment_id":4242,"attachments":[{"filename":"zadanie.pdf"}],"course":"Бухгалтерский учет ","draft_required":false,"name":"Задание практика 1","submission":{"files":[]}}' \
+  > "$WS/documents/42-kurs/pr-1/assignment.json"
+# upload_file result as a structured object, then as escaped JSON text inside an MCP content block
+printf '{"tool_input":{"path":"%s","filename":null},"tool_response":{"uploaded":true,"item_id":777,"filename":"report.pdf"}}' "$WS/documents/c1/lab-1/report.pdf" \
+  | CLAUDE_PLUGIN_DATA="$DLG/data" bash "$SCRIPTS/record-upload.sh"
+printf '{"tool_input":{"path":"%s"},"tool_response":[{"type":"text","text":"{\\"uploaded\\":true,\\"item_id\\":888,\\"filename\\":\\"other.pdf\\"}"}]}' "$TMP/outside.pdf" \
+  | CLAUDE_PLUGIN_DATA="$DLG/data" bash "$SCRIPTS/record-upload.sh"
+grep -q $'^777\treport.pdf$' "$DLG/data/uploads.tsv" && pass "upload recorded (object result)" || fail "upload recorded (object result)" "$(cat "$DLG/data/uploads.tsv" 2>&1)"
+grep -q $'^888\toutside.pdf$' "$DLG/data/uploads.tsv" && pass "upload recorded (text result)" || fail "upload recorded (text result)" "$(cat "$DLG/data/uploads.tsv" 2>&1)"
+out="$(printf '{"tool_input":{"assignment_id":4242,"item_id":777}}' | CLAUDE_PLUGIN_DATA="$DLG/data" bash "$SCRIPTS/guard-submit.sh")"
+for want in "«Задание практика 1» — Бухгалтерский учет\\n" "Файл: report.pdf" "сразу уйдёт преподавателю"; do
+  [[ "$out" == *"$want"* ]] && pass "dialog shows: $want" || fail "dialog shows: $want" "$out"
+done
+out="$(printf '{"tool_input":{"assignment_id":9,"text":"<p>one two three</p>"}}' | CLAUDE_PLUGIN_DATA="$DLG/data" bash "$SCRIPTS/guard-submit.sh")"
+[[ "$out" == *"задание 9 в LMS"* && "$out" == *"Ответ текстом, слов: 3"* ]] && pass "dialog without snapshot" || fail "dialog without snapshot" "$out"
+
 echo "== session-start (downloads moodle-mcp and Typst, verifies checksums)"
 export CLAUDE_PLUGIN_ROOT="$PLUGIN" CLAUDE_PLUGIN_DATA="$TMP/data"
 WS2="$TMP/ws2"

@@ -4,13 +4,17 @@
 
 HOOK_INPUT="$(cat)"
 
-# json_field <name>: value of the first "name": "<string>" or "name": <number> in the input.
-json_field() {
-  printf '%s' "$HOOK_INPUT" | tr -d '\n' \
-    | sed -nE "s/.*\"$1\"[[:space:]]*:[[:space:]]*(\"(([^\"\\\\]|\\\\.)*)\"|([-0-9.a-z]+)).*/\2\4/p" \
+# json_get <json> <name>: value of the last "name": "<string>" or "name": <number> (the greedy
+# sed match ends on the last occurrence). Keys inside escaped JSON strings are not matched.
+json_get() {
+  printf '%s' "$1" | tr -d '\n' \
+    | sed -nE "s/.*\"$2\"[[:space:]]*:[[:space:]]*(\"(([^\"\\\\]|\\\\.)*)\"|([-0-9.a-z]+)).*/\2\4/p" \
     | head -1 \
     | sed 's/\\\//\//g; s/\\"/"/g; s/\\\\/\\/g'
 }
+
+# json_field <name>: json_get on the hook input.
+json_field() { json_get "$HOOK_INPUT" "$1"; }
 
 json_str() {
   local s=$1
