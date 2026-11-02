@@ -43,7 +43,7 @@ fi
 
 msg="Отправка в LMS от вашего имени"
 if [[ -n "$work" ]]; then
-  msg+=$'\n'"Работа: «$work»${course:+ — $course}"
+  msg+=$'\n'"Работа: «${work}»${course:+ — ${course}}"
 else
   msg+=$'\n'"Работа: задание ${assignment:-?} в LMS"
 fi
