@@ -76,6 +76,7 @@ bash -n plugins/mospolytech-lms/scripts/*.sh plugins/mospolytech-lms/bin/typst-g
 - Хуки проверяются без Claude: подать JSON на stdin, например `printf '{"tool_input":{"path":"…"}}' | CLAUDE_PLUGIN_OPTION_WORKSPACE_DIR=… bash scripts/guard-upload.sh`. Проверяй и разрешающие, и запрещающие случаи (вне папки работ, `../`, пустой, несуществующий файл; пустой ответ, `finalize` без файла).
 - `session-start.sh` — с временными `CLAUDE_PLUGIN_ROOT`, `CLAUDE_PLUGIN_DATA`, `CLAUDE_PLUGIN_OPTION_*`, в сценариях без токена, с неверным токеном, без рабочей папки.
 - Загрузка в Claude Code без установки: `claude -p "…" --plugin-dir plugins/mospolytech-lms` из временной папки. `--allowedTools` — вариативный флаг, промпт ставь до него. Тестовая папка данных — `~/.claude/plugins/data/mospolytech-lms-inline/`, после тестов удаляй её.
+- Как выглядит окно подтверждения отправки в настоящем Claude Code — `bash tests/hook-preview.sh <папка>`, затем `cd <папка> && claude` и просьба выполнить `echo lms-hook-preview`. Скрипт вешает `guard-submit.sh` с образцом работы на эту безобидную команду через `.claude/settings.local.json` временной папки; «Yes» выполняет только echo. Правки `guard-submit.sh` видны при следующем вызове без перезапуска.
 - Не вызывай в тестах `submit_assignment` и не разрешай его через `--allowedTools`: это реальная сдача от имени пользователя.
 
 ## Внешние бинарники
