@@ -21,7 +21,7 @@
     "workspace_dir": {
       "type": "directory",
       "title": "Рабочая папка",
-      "description": "Где хранить профиль студента, кеш курсов и выполненные работы (например: C:/University/). Лучше запускать Claude Code из этой папки.",
+      "description": "Где хранить профиль студента, кеш курсов и выполненные работы (например: C:/University/mospolytech-plugin). Лучше запускать Claude Code из этой папки.",
       "required": true
     },
     "moodle_url": {

@@ -11,9 +11,11 @@
 
 ## Установка
 
-Нужен [Claude Code](https://code.claude.com) 2.1.275 или новее и учётная запись в LMS. В Windows — ещё [Git for Windows](https://git-scm.com/download/win): хуки плагина выполняются в Git Bash.
+### Подготовка
 
-Остальное плагин ставит сам. По желанию — **poppler**: с ним Claude смотрит PDF чуть быстрее; без него страницы PDF и сканы заданий рисуются в картинки через Typst (команда `pdf-pages`):
+1. Нужен [Claude Code](https://code.claude.com) 2.1.275 или новее и учётная запись в LMS. В Windows — ещё [Git for Windows](https://git-scm.com/download/win): хуки плагина выполняются в Git Bash. Остальное плагин ставит сам.
+
+2. По желанию — **poppler**: с ним Claude смотрит PDF чуть быстрее; без него страницы PDF и сканы заданий рисуются в картинки через Typst (команда `pdf-pages`):
 
 ```sh
 sudo apt install poppler-utils          # Debian/Ubuntu
@@ -22,36 +24,31 @@ brew install poppler                    # macOS
 winget install oschwartz10612.Poppler   # Windows
 ```
 
+3. Claude Code не работает без VPN, а LMS может не работать с VPN. Для того чтобы решить эту проблему, воспользуйтесь раздельным туннелированием в вашем VPN-клиенте, либо в настройках маршрутизации в клиенте добавьте в исключения `online.mospolytech.ru`, либо используйте [HTTP-прокси](https://code.claude.com/docs/en/network-config) вместо туннелирования (на свой [страх](https://habr.com/ru/companies/aurorium/news/1089498/) и [риск](https://vietbui.mintlify.app/concepts/webrtc-ip-leak)).
+
+### Подключение плагина
+
 1. Добавьте маркетплейс, установите плагин и укажите **рабочую папку** — там будут профиль, кеш курсов и выполненные работы. Остальные настройки можно оставить по умолчанию.
 
-   Проще всего — одной командой в обычном терминале: она сама добавит маркетплейс, поставит плагин и запишет рабочую папку:
-
-   ```sh
-   claude plugin install mospolytech-lms --marketplace Sm4rtSt1ck/mospolytech-lms-claude-plugin --config workspace_dir=<путь к рабочей папке>
-   ```
-
-   Или внутри Claude Code в терминале — после установки откроется окно настроек, рабочую папку вводите там:
+   Внутри Claude Code в терминале — после установки откроется окно настроек, рабочую папку вводите там (например: C:/University/mospolytech-plugin):
 
    ```
    /plugin install mospolytech-lms --marketplace Sm4rtSt1ck/mospolytech-lms-claude-plugin
    ```
 
-   В расширении VS Code команды `/plugin` нет — используйте команду в терминале выше или окно «Manage plugins».
+   В расширении VS Code команды `/plugin` нет — используйте там `/manageplugins` или выполните команду в терминале выше.
 
-2. Позже настройки можно поменять: `/plugin configure mospolytech-lms@mospolytech`, шестерёнка у плагина в «Manage plugins» или `claude plugin configure`.
+   Позже настройки можно поменять: `/plugin configure mospolytech-lms@mospolytech` в Claude Code CLI, шестерёнка у плагина в `/manageplugins` в расширении VS Code или `claude plugin configure mospolytech-lms@mospolytech` в терминале.
 
-3. Перезапустите сессию. При первом старте плагин скачает moodle-mcp и Typst (около 30 МБ) и подскажет команду для входа в LMS.
-
-4. Выполните эту команду в обычном терминале — она спросит логин и пароль от LMS и сохранит токен в настройки плагина:
-
-   ```sh
-   bash ~/.claude/plugins/.../mospolytech-lms/scripts/login.sh              # Linux, macOS, WSL
-   powershell -ExecutionPolicy Bypass -File ...\scripts\login.ps1           # Windows
-   ```
+2. Перезапустите Claude Code. При первом старте плагин скачает [moodle-mcp](https://github.com/G36maid/moodle-mcp) и [Typst](https://github.com/typst/typst) (около 30 МБ) и подскажет команду для входа в LMS. Скопируйте эту команду и выполните в терминале — она спросит логин и пароль от LMS и сохранит токен в настройки плагина.
 
    Точный путь Claude покажет в сообщении при старте сессии. Пароль нигде не сохраняется.
+   ```sh
+   bash ~/.claude/plugins/.../mospolytech-lms/scripts/login.sh       # Linux, macOS, WSL
+   powershell -ExecutionPolicy Bypass -File ...\scripts\login.ps1    # Windows
+   ```
 
-5. Перезапустите сессию и запускайте Claude Code из рабочей папки.
+3. Перезапустите сессию и запускайте Claude Code из рабочей папки.
 
 ## Что внутри
 
@@ -123,7 +120,7 @@ winget install oschwartz10612.Poppler   # Windows
 - Токен хранится не в рабочей папке и не в репозитории, а в хранилище секретов Claude Code: на macOS — в связке ключей (Keychain), на Linux и Windows — в файле `~/.claude/.credentials.json`, доступном только вашему пользователю. Файл не зашифрован: не передавайте его и не выкладывайте вместе с настройками.
 - До вашего «да» в LMS ничего не загружается. Отправка сообщений и постов в форумы отключена.
 - Telegram читается только по вашей просьбе и только из чатов, которые вы назвали.
-- Бинарники в репозитории не хранятся: `scripts/install.sh` скачивает [moodle-mcp](https://github.com/G36maid/moodle-mcp) (MIT) и [Typst](https://github.com/typst/typst) (Apache-2.0) из их релизов на GitHub и сверяет SHA-256 каждого архива с записанным в скрипте.
+- Бинарники в репозитории не хранятся: `scripts/install.sh` скачивает [moodle-mcp](https://github.com/G36maid/moodle-mcp) и [Typst](https://github.com/typst/typst) из их релизов на GitHub и сверяет SHA-256 каждого архива с записанным в скрипте.
 
 ## Известные проблемы
 
@@ -136,8 +133,8 @@ winget install oschwartz10612.Poppler   # Windows
 
 ## Лицензия
 
-[MIT](LICENSE). moodle-mcp и Typst распространяются под своими лицензиями и скачиваются из оригинальных релизов.
+[MIT](LICENSE). moodle-mcp (MIT) и Typst (Apache-2.0) распространяются под своими лицензиями и скачиваются из оригинальных релизов.
 
 ## Ответственность
 
-Автор проекта ответственности за результаты работ не несёт. Работа сдаётся от вашего имени. Проверяйте отчёт перед отправкой, разбирайтесь в решении перед защитой (для этого `notes-for-defense.md`) и следуйте правилам вашего курса об использовании ИИ.
+Автор проекта ответственности за результаты работ не несёт. Работа сдаётся от вашего имени. Проверяйте отчёт перед отправкой, разбирайтесь в решении перед защитой (для этого читайте `notes-for-defense.md`) и следуйте правилам вашего курса об использовании ИИ.
