@@ -24,7 +24,7 @@ brew install poppler                    # macOS
 winget install oschwartz10612.Poppler   # Windows
 ```
 
-3. Claude Code не работает без VPN, а LMS может не работать с VPN. Для того чтобы решить эту проблему, воспользуйтесь раздельным туннелированием в вашем VPN-клиенте, либо в настройках маршрутизации в клиенте добавьте в исключения `online.mospolytech.ru`, либо используйте [HTTP-прокси](https://code.claude.com/docs/en/network-config) вместо туннелирования (на свой [страх](https://habr.com/ru/companies/aurorium/news/1089498/) и [риск](https://vietbui.mintlify.app/concepts/webrtc-ip-leak)).
+3. Claude Code не работает без VPN, а LMS может не работать с VPN. Для того чтобы решить эту проблему, воспользуйтесь раздельным туннелированием в вашем VPN-клиенте, либо в настройках маршрутизации в клиенте добавьте в исключения `online.mospolytech.ru` (или все домены в зоне `.ru`), либо используйте [HTTP-прокси](https://code.claude.com/docs/en/network-config) вместо туннелирования (на свой [страх](https://habr.com/ru/companies/aurorium/news/1089498/) и [риск](https://vietbui.mintlify.app/concepts/webrtc-ip-leak)).
 
 ### Подключение плагина
 
