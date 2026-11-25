@@ -1,5 +1,6 @@
 # mospolytech-mcp (https://github.com/EDeev/mospolytech-mcp) for one student, on this computer only.
-# Based on the project's deploy/docker-compose.yaml: pinned image, port bound to 127.0.0.1.
+# Based on the project's deploy/docker-compose.yaml: image pinned by digest (LK_IMAGE, set by setup.sh),
+# port bound to 127.0.0.1.
 # scripts/setup.sh copies this file next to a generated .env (Postgres password, MCP_SECRET_KEY)
 # and runs `docker compose up -d`. Data stays in the "pgdata" volume between restarts and updates.
 name: mospolytech-lms-lk
@@ -22,7 +23,7 @@ services:
 
   # Applies the Alembic migrations and exits; the server starts after it.
   migrate:
-    image: ghcr.io/edeev/mospolytech-mcp:${APP_TAG}
+    image: ${LK_IMAGE}
     command: ["alembic", "upgrade", "head"]
     environment:
       DATABASE_URL: postgresql+psycopg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
@@ -32,7 +33,7 @@ services:
     restart: "no"
 
   mcp:
-    image: ghcr.io/edeev/mospolytech-mcp:${APP_TAG}
+    image: ${LK_IMAGE}
     environment:
       DATABASE_URL: postgresql+psycopg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
       MCP_SECRET_KEY: ${MCP_SECRET_KEY}

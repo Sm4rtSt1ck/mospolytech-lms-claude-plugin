@@ -17,7 +17,9 @@ set -uo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 TELEGRAM_MCP_REPO=https://github.com/chigwell/telegram-mcp.git
 TELEGRAM_MCP_TAG=v3.3.4          # PyPI "telegram-mcp" is a different project: always install from git
-LK_IMAGE_TAG=1.0.0               # ghcr.io/edeev/mospolytech-mcp
+# mospolytech-mcp 1.0.1 (login fix: the portal API moved to old-e.mospolytech.ru). The release tag is
+# not published yet, so the image is pinned by digest: the build of main at cb9fcd2, same as their prod.
+LK_IMAGE=ghcr.io/edeev/mospolytech-mcp@sha256:d8969cbda6162e7b8dbc83b32aa5020cd1a11257000b45aed3c653c53e40357b
 LK_PORT=8770                     # 8765 is telegram-mcp's default HTTP port
 
 is_windows() { case "$(uname -s)" in MINGW*|MSYS*|CYGWIN*) return 0 ;; esac; return 1; }
@@ -171,14 +173,16 @@ lk() {
     say "Создаю настройки сервера (пароль базы и ключ шифрования — случайные)…"
     local pw key
     pw="$(od -An -N16 -tx1 /dev/urandom | tr -d ' \n')"
-    key="$(docker run --rm "ghcr.io/edeev/mospolytech-mcp:$LK_IMAGE_TAG" python -m mospolytech_mcp.crypto | tr -d '\r\n')" \
+    key="$(docker run --rm "$LK_IMAGE" python -m mospolytech_mcp.crypto | tr -d '\r\n')" \
       || die "не удалось скачать образ mospolytech-mcp"
     [[ -n "$key" ]] || die "образ не выдал ключ шифрования"
-    (umask 077; printf 'POSTGRES_DB=mospolytech_mcp\nPOSTGRES_USER=mospolytech_mcp\nPOSTGRES_PASSWORD=%s\nMCP_SECRET_KEY=%s\nAPP_TAG=%s\nLK_PORT=%s\n' \
-      "$pw" "$key" "$LK_IMAGE_TAG" "$LK_PORT" > "$dir/.env")
+    (umask 077; printf 'POSTGRES_DB=mospolytech_mcp\nPOSTGRES_USER=mospolytech_mcp\nPOSTGRES_PASSWORD=%s\nMCP_SECRET_KEY=%s\nLK_PORT=%s\n' \
+      "$pw" "$key" "$LK_PORT" > "$dir/.env")
   fi
-  # A newer plugin may pin a newer image; keep the generated secrets.
-  sed -i.bak "s/^APP_TAG=.*/APP_TAG=$LK_IMAGE_TAG/" "$dir/.env" && rm -f "$dir/.env.bak"
+  # A newer plugin may pin a newer image: rewrite only the image line, keep the generated secrets.
+  grep -v -e '^LK_IMAGE=' -e '^APP_TAG=' "$dir/.env" > "$dir/.env.new"
+  printf 'LK_IMAGE=%s\n' "$LK_IMAGE" >> "$dir/.env.new"
+  (umask 077; cat "$dir/.env.new" > "$dir/.env"); rm -f "$dir/.env.new"
   say "Запускаю сервер личного кабинета (первый раз скачивается ~200 МБ)…"
   (cd "$dir" && docker compose up -d) || die "docker compose up завершился ошибкой; подробности: cd \"$dir\" && docker compose logs"
   local i
