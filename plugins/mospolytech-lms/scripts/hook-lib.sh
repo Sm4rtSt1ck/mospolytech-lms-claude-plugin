@@ -37,15 +37,23 @@ real_dir() { (cd "$1" 2>/dev/null && pwd -P); }
 
 # Documents root: paths.documents_dir from <workspace>/profile.yaml, relative to the workspace,
 # default <workspace>/documents. Empty when the workspace is not configured.
-documents_root() {
-  local ws dir
+# profile_path <key> <default>: a path setting ("key: value") from <ws>/profile.yaml, made absolute:
+# a relative value is resolved against the workspace. Prints nothing when no workspace is set.
+profile_path() {
+  local ws v
   ws="$(to_unix "${CLAUDE_PLUGIN_OPTION_WORKSPACE_DIR:-}")"
   ws="${ws/#\~/$HOME}"
   [[ -n "$ws" ]] || return 0
-  dir="$(sed -n 's/^[[:space:]]*documents_dir:[[:space:]]*["'\'']\{0,1\}\([^"'\''#]*\)["'\'']\{0,1\}.*/\1/p' "$ws/profile.yaml" 2>/dev/null | head -1)"
-  dir="${dir%"${dir##*[![:space:]]}"}"
-  dir="$(to_unix "${dir:-documents}")"
-  dir="${dir/#\~/$HOME}"
-  case "$dir" in /*) ;; *) dir="$ws/$dir" ;; esac
-  real_dir "$dir"
+  v="$(sed -n "s/^[[:space:]]*$1:[[:space:]]*[\"']\{0,1\}\([^\"'#]*\)[\"']\{0,1\}.*/\1/p" "$ws/profile.yaml" 2>/dev/null | head -1)"
+  v="${v%"${v##*[![:space:]]}"}"
+  v="$(to_unix "${v:-$2}")"
+  v="${v/#\~/$HOME}"
+  case "$v" in /*) ;; *) v="$ws/$v" ;; esac
+  printf '%s' "$v"
+}
+
+documents_root() {
+  local dir
+  dir="$(profile_path documents_dir documents)"
+  [[ -n "$dir" ]] && real_dir "$dir"
 }

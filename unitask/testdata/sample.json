@@ -1,0 +1,41 @@
+{
+  "updated": "2026-01-01",
+  "projects": [
+    {
+      "title": "Сайт",
+      "owner": "Аня",
+      "items": [
+        {
+          "title": "Сверстать главную",
+          "status": "to-do",
+          "deadline": "2026-02-01",
+          "estimate_h": 6,
+          "tags": [
+            "frontend"
+          ]
+        },
+        {
+          "title": "Настроить CI",
+          "status": "in-progress",
+          "done_at": null,
+          "custom": {
+            "runner": "linux"
+          }
+        },
+        {
+          "title": "Старый лендинг",
+          "status": "cancelled"
+        },
+        {
+          "title": "Ждёт ревью",
+          "status": "review",
+          "reviewer": "Борис"
+        }
+      ]
+    },
+    {
+      "title": "Пустой проект",
+      "items": []
+    }
+  ]
+}

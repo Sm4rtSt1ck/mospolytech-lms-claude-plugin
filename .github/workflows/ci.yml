@@ -25,6 +25,27 @@ jobs:
       - name: Validate marketplace
         run: claude plugin validate .
 
+  unitask:
+    name: unitask (go vet, go test, cross-build)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: unitask
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: unitask/go.mod
+          cache-dependency-path: unitask/go.sum
+      - run: test -z "$(gofmt -l .)" || { gofmt -l .; exit 1; }
+      - run: go vet ./...
+      - run: go test ./...
+      - name: Cross-build every release target
+        run: |
+          for t in linux/amd64 linux/arm64 darwin/amd64 darwin/arm64 windows/amd64; do
+            GOOS=${t%/*} GOARCH=${t#*/} CGO_ENABLED=0 go build -trimpath -o /dev/null . && echo "ok $t"
+          done
+
   tests:
     name: Scripts (${{ matrix.os }})
     strategy:

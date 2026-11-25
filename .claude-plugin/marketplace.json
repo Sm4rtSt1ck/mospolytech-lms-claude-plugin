@@ -9,7 +9,7 @@
     {
       "name": "mospolytech-lms",
       "source": "./plugins/mospolytech-lms",
-      "description": "Лабораторные в LMS Мосполитеха: от задания до сдачи"
+      "description": "Учёба в Мосполитехе: лабораторные в LMS от задания до сдачи, задания и сроки из ЛК и Telegram, учёт задач и канбан unitask"
     }
   ]
 }

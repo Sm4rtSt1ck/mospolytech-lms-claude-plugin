@@ -1,0 +1,60 @@
+name: unitask release
+
+# Push a tag "unitask-v<version>" to build unitask for every platform the plugin supports and publish
+# the archives as a GitHub release of this repository. install.sh downloads them from there and checks
+# the SHA-256 recorded in its expected_sha256 table, so after a release copy the digests into it:
+#   gh api repos/<owner>/<repo>/releases/tags/unitask-v<version> --jq '.assets[] | .name + " " + .digest'
+on:
+  push:
+    tags: ["unitask-v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: unitask
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: unitask/go.mod
+          cache-dependency-path: unitask/go.sum
+      - run: go vet ./... && go test ./...
+      - name: Build archives
+        run: |
+          version="${GITHUB_REF_NAME#unitask-v}"
+          mkdir -p dist
+          # target triple (as in install.sh) -> GOOS/GOARCH
+          for pair in \
+            x86_64-unknown-linux-gnu:linux/amd64 \
+            aarch64-unknown-linux-gnu:linux/arm64 \
+            x86_64-apple-darwin:darwin/amd64 \
+            aarch64-apple-darwin:darwin/arm64 \
+            x86_64-pc-windows-msvc:windows/amd64; do
+            target="${pair%%:*}" platform="${pair#*:}"
+            goos="${platform%/*}" goarch="${platform#*/}"
+            name="unitask-$version-$target"
+            stage="dist/$name"
+            mkdir -p "$stage"
+            exe=unitask; [[ "$goos" == windows ]] && exe=unitask.exe
+            GOOS=$goos GOARCH=$goarch CGO_ENABLED=0 \
+              go build -trimpath -ldflags "-s -w -X main.version=$version" -o "$stage/$exe" .
+            cp README.md "$stage/"
+            if [[ "$goos" == windows ]]; then
+              (cd dist && zip -qr "$name.zip" "$name")
+            else
+              tar -C dist -czf "dist/$name.tar.gz" "$name"
+            fi
+          done
+          (cd dist && sha256sum *.tar.gz *.zip | tee SHA256SUMS)
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" --title "unitask ${GITHUB_REF_NAME#unitask-v}" \
+            --notes "TUI-канбан для progress.json. Ставится плагином mospolytech-lms автоматически." \
+            dist/*.tar.gz dist/*.zip dist/SHA256SUMS

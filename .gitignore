@@ -1,2 +1,12 @@
 .claude/settings.local.json
 .DS_Store
+
+# unitask build output
+/unitask/unitask
+/unitask/unitask.exe
+/unitask/unitask-mac
+/unitask/dist/
+*.tmp
+
+# personal Telegram chat list (lives in the workspace; never commit a copy)
+telegram.yaml

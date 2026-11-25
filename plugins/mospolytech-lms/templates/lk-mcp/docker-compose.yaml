@@ -1,0 +1,48 @@
+# mospolytech-mcp (https://github.com/EDeev/mospolytech-mcp) for one student, on this computer only.
+# Based on the project's deploy/docker-compose.yaml: pinned image, port bound to 127.0.0.1.
+# scripts/setup.sh copies this file next to a generated .env (Postgres password, MCP_SECRET_KEY)
+# and runs `docker compose up -d`. Data stays in the "pgdata" volume between restarts and updates.
+name: mospolytech-lms-lk
+
+services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+  # Applies the Alembic migrations and exits; the server starts after it.
+  migrate:
+    image: ghcr.io/edeev/mospolytech-mcp:${APP_TAG}
+    command: ["alembic", "upgrade", "head"]
+    environment:
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: "no"
+
+  mcp:
+    image: ghcr.io/edeev/mospolytech-mcp:${APP_TAG}
+    environment:
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+      MCP_SECRET_KEY: ${MCP_SECRET_KEY}
+      MCP_PUBLIC_URL: http://127.0.0.1:${LK_PORT}
+    ports:
+      - "127.0.0.1:${LK_PORT}:8000"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    restart: unless-stopped
+
+volumes:
+  pgdata:

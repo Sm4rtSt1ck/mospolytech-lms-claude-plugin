@@ -9,6 +9,9 @@ PLUGIN="$REPO/plugins/mospolytech-lms"
 SCRIPTS="$PLUGIN/scripts"
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
+# install.sh would add unitask to the real user's PATH (rc files, Windows registry); user-path.sh is
+# tested separately with a fake HOME.
+export LMS_NO_USER_PATH=1
 
 failures=0
 pass() { printf 'ok    %s\n' "$1"; }
@@ -24,12 +27,12 @@ expect() {
 }
 
 echo "== syntax"
-for f in "$SCRIPTS"/*.sh "$PLUGIN/bin/typst-gost" "$PLUGIN/bin/pdf-pages" "$REPO/tests/run.sh"; do
+for f in "$SCRIPTS"/*.sh "$PLUGIN/bin/typst-gost" "$PLUGIN/bin/pdf-pages" "$PLUGIN/bin/unitask" "$REPO/tests/run.sh"; do
   if bash -n "$f"; then pass "bash -n ${f#"$REPO"/}"; else fail "bash -n ${f#"$REPO"/}"; fi
 done
 
 # bash 3.2 (macOS) takes the bytes of a non-ASCII letter right after $name as part of the name.
-unbraced="$(LC_ALL=C grep -nE '\$[A-Za-z_][A-Za-z0-9_]*'$'[\x80-\xff]' "$SCRIPTS"/*.sh "$PLUGIN/bin/typst-gost" "$PLUGIN/bin/pdf-pages" || true)"
+unbraced="$(LC_ALL=C grep -nE '\$[A-Za-z_][A-Za-z0-9_]*'$'[\x80-\xff]' "$SCRIPTS"/*.sh "$PLUGIN/bin/typst-gost" "$PLUGIN/bin/pdf-pages" "$PLUGIN/bin/unitask" || true)"
 [[ -z "$unbraced" ]] && pass "no \$var right before non-ASCII text" || fail "no \$var right before non-ASCII text" "use \${var}: $unbraced"
 
 # Windows PowerShell 5.1 reads a .ps1 without BOM as ANSI and mangles the Russian text into a parse error.
@@ -94,14 +97,106 @@ case "$out" in
   *) fail "valid hook output" "$out" ;;
 esac
 [[ "$out" == *"нет токена LMS"* ]] && pass "missing token reported" || fail "missing token reported" "$out"
-[[ "$out" == *"не удалось скачать"* ]] && fail "binaries installed" "$out" || pass "binaries installed"
+[[ "$out" == *"не удалось установить moodle-mcp"* || "$out" == *"не удалось установить typst"* ]] && fail "binaries installed" "$out" || pass "binaries installed"
 for tool in moodle-mcp typst; do
   if [[ -x "$TMP/data/bin/$tool" || -x "$TMP/data/bin/$tool.exe" ]]; then pass "$tool present"; else fail "$tool present"; fi
 done
 [[ -f "$WS2/profile.yaml" && -f "$WS2/cache/index.md" && -d "$WS2/documents" ]] && pass "workspace created" || fail "workspace created"
 [[ -s "$TMP/data/ca-bundle.pem" ]] && pass "ca bundle" || fail "ca bundle"
+if command -v pandoc >/dev/null || [[ -x "$TMP/data/bin/pandoc" || -x "$TMP/data/bin/pandoc.exe" ]]; then pass "pandoc available"
+else fail "pandoc available" "$out"; fi
+[[ "$out" == *"не удалось установить pandoc"* ]] && fail "pandoc installed without errors" "$out" || pass "pandoc installed without errors"
+if grep -Eq '"semester": "20[0-9]{2}-(autumn|spring)"' "$WS2/progress.json" 2>/dev/null && grep -q '"subjects": {}' "$WS2/progress.json"; then
+  pass "progress.json skeleton in the workspace root"
+else fail "progress.json skeleton in the workspace root" "$(cat "$WS2/progress.json" 2>/dev/null)"; fi
+grep -qx "LMS_PROGRESS_FILE=$WS2/progress.json" "$TMP/data/env" && pass "progress path in env" || fail "progress path in env" "$(cat "$TMP/data/env")"
+[[ "$out" == *"учёт задач — $WS2/progress.json"* ]] && pass "progress path in context" || fail "progress path in context" "$out"
+echo '{"updated":"2026-01-01","subjects":{"x":{"name":"X","tasks":[]}}}' > "$WS2/progress.json"
+echo '{}' | CLAUDE_PLUGIN_OPTION_WORKSPACE_DIR="$WS2" bash "$SCRIPTS/session-start.sh" >/dev/null
+grep -q '"name":"X"' "$WS2/progress.json" && pass "existing progress.json kept" || fail "existing progress.json kept"
 out="$(echo '{}' | CLAUDE_PLUGIN_OPTION_WORKSPACE_DIR= bash "$SCRIPTS/session-start.sh")"
 [[ "$out" == *"не задана рабочая папка"* ]] && pass "missing workspace reported" || fail "missing workspace reported" "$out"
+
+echo "== session-start: progress_file, unitask settings, optional MCP reminders"
+WS3="$TMP/ws3"
+mkdir -p "$WS3"
+sed 's|^  progress_file: progress.json|  progress_file: study/tasks.json|' "$PLUGIN/profile.example.yaml" > "$WS3/profile.yaml"
+# Fake unitask: -get-file prints $FAKE_UNITASK_FILE, -set-file records its argument.
+UT_DATA="$TMP/utdata"
+mkdir -p "$UT_DATA/bin" "$UT_DATA/unitask"
+cp -p "$TMP/data/bin/"* "$UT_DATA/bin/"; cp "$TMP/data/bin/".*-version "$UT_DATA/bin/" 2>/dev/null
+cp "$TMP/data/ca-bundle.pem" "$UT_DATA/"
+for exe in unitask unitask.exe; do
+  {
+    echo '#!/usr/bin/env bash'
+    echo 'case "$1" in'
+    echo '  -get-file) printf "%s\n" "${FAKE_UNITASK_FILE:-}" ;;'
+    echo "  -set-file) printf '%s\n' \"\$2\" > \"$UT_DATA/set-file\" ;;"
+    echo 'esac'
+  } > "$UT_DATA/unitask/$exe"
+  chmod +x "$UT_DATA/unitask/$exe"
+done
+echo 0.1.0 > "$UT_DATA/unitask/.unitask-version"
+run_ss() { echo '{}' | CLAUDE_PLUGIN_DATA="$UT_DATA" CLAUDE_PLUGIN_OPTION_WORKSPACE_DIR="$WS3" "$@" bash "$SCRIPTS/session-start.sh"; }
+out="$(run_ss env FAKE_UNITASK_FILE=)"
+[[ -f "$WS3/study/tasks.json" ]] && pass "paths.progress_file honoured" || fail "paths.progress_file honoured" "$out"
+got="$(tr -d '\r' < "$UT_DATA/set-file" 2>/dev/null)"
+want="$WS3/study/tasks.json"; command -v cygpath >/dev/null && want="$(cygpath -w "$want")"
+[[ "$got" == "$want" ]] && pass "unitask pointed at progress.json" || fail "unitask pointed at progress.json" "got: $got"
+rm -f "$UT_DATA/set-file"
+run_ss env FAKE_UNITASK_FILE="$TMP/gone.json" >/dev/null
+[[ -f "$UT_DATA/set-file" ]] && pass "unitask re-pointed when its file is gone" || fail "unitask re-pointed when its file is gone"
+rm -f "$UT_DATA/set-file"
+echo '{}' > "$TMP/mine.json"
+mine="$TMP/mine.json"; command -v cygpath >/dev/null && mine="$(cygpath -w "$mine")"
+out="$(run_ss env FAKE_UNITASK_FILE="$mine")"
+[[ ! -f "$UT_DATA/set-file" ]] && pass "user's own unitask file kept" || fail "user's own unitask file kept"
+[[ "$out" == *"unitask открывает другой файл"* ]] && pass "different unitask file noted" || fail "different unitask file noted" "$out"
+
+FAKEHOME="$TMP/home"
+mkdir -p "$FAKEHOME"
+out="$(run_ss env HOME="$FAKEHOME" CLAUDE_PLUGIN_OPTION_CONNECT_TELEGRAM=true CLAUDE_PLUGIN_OPTION_CONNECT_LK=true)"
+[[ "$out" == *"setup."*" telegram"* && "$out" == *"setup."*" lk"* ]] && pass "ticked but missing MCP servers reported" || fail "ticked but missing MCP servers reported" "$out"
+printf '{"mcpServers": {"telegram": {"type": "stdio"}, "mospolytech": {"type": "http"}}}' > "$FAKEHOME/.claude.json"
+out="$(run_ss env HOME="$FAKEHOME" CLAUDE_PLUGIN_OPTION_CONNECT_TELEGRAM=true CLAUDE_PLUGIN_OPTION_CONNECT_LK=true)"
+[[ "$out" == *"не подключён"* ]] && fail "registered MCP servers not reported" "$out" || pass "registered MCP servers not reported"
+out="$(run_ss env HOME="$TMP/nohome" CLAUDE_PLUGIN_OPTION_CONNECT_TELEGRAM=false)"
+[[ "$out" == *"не подключён"* ]] && fail "unticked components not reported" "$out" || pass "unticked components not reported"
+
+echo "== install.sh: tools fail independently"
+IN_DATA="$TMP/indata"
+mkdir -p "$IN_DATA/bin" "$TMP/nocurl"
+cp -p "$TMP/data/bin/"* "$IN_DATA/bin/"; cp "$TMP/data/bin/".*-version "$IN_DATA/bin/" 2>/dev/null
+printf '#!/bin/sh\nexit 22\n' > "$TMP/nocurl/curl"; chmod +x "$TMP/nocurl/curl"
+out="$(PATH="$TMP/nocurl:$PATH" CLAUDE_PLUGIN_DATA="$IN_DATA" bash "$SCRIPTS/install.sh" 2>&1)"; code=$?
+[[ $code == 0 && "$out" == *"failed: unitask:"* ]] && pass "optional tool failure is not fatal" || fail "optional tool failure is not fatal" "exit $code: $out"
+rm -f "$IN_DATA/bin/.typst-version"
+out="$(PATH="$TMP/nocurl:$PATH" CLAUDE_PLUGIN_DATA="$IN_DATA" bash "$SCRIPTS/install.sh" 2>&1)"; code=$?
+[[ $code != 0 && "$out" == *"failed: typst:"* && "$out" != *"failed: moodle-mcp"* ]] && pass "required tool failure reported alone" || fail "required tool failure reported alone" "exit $code: $out"
+
+echo "== user-path.sh (fake HOME)"
+case "$(uname -s)" in
+  MINGW*|MSYS*|CYGWIN*) pass "skipped on Windows (writes the user PATH in the registry)" ;;
+  *)
+    UH="$TMP/uhome"; mkdir -p "$UH/prog"; touch "$UH/.zshrc"
+    printf '#!/bin/sh\n' > "$UH/prog/unitask"; chmod +x "$UH/prog/unitask"
+    out="$(HOME="$UH" PATH=/usr/bin:/bin bash "$SCRIPTS/user-path.sh" "$UH/prog")"
+    [[ "$(readlink "$UH/.local/bin/unitask")" == "$UH/prog/unitask" ]] && pass "symlink in ~/.local/bin" || fail "symlink in ~/.local/bin" "$out"
+    grep -q 'mospolytech-lms: unitask' "$UH/.zshrc" && grep -q 'mospolytech-lms: unitask' "$UH/.profile" && pass "PATH block in rc files" || fail "PATH block in rc files" "$out"
+    [[ "$out" == *path-added* ]] && pass "change reported" || fail "change reported" "$out"
+    out="$(HOME="$UH" PATH=/usr/bin:/bin bash "$SCRIPTS/user-path.sh" "$UH/prog")"
+    [[ -z "$out" && "$(grep -c 'mospolytech-lms: unitask' "$UH/.zshrc")" == 1 ]] && pass "idempotent" || fail "idempotent" "$out"
+    rm "$UH/.local/bin/unitask"; printf 'mine\n' > "$UH/.local/bin/unitask"
+    out="$(HOME="$UH" PATH="$UH/.local/bin:/usr/bin:/bin" bash "$SCRIPTS/user-path.sh" "$UH/prog")"
+    [[ "$(cat "$UH/.local/bin/unitask")" == mine && "$out" == *path-skipped* ]] && pass "foreign file not replaced" || fail "foreign file not replaced" "$out"
+    ;;
+esac
+
+echo "== setup.sh (no claude, no docker calls)"
+out="$(HOME="$TMP/shome" PATH=/usr/bin:/bin CLAUDE_PLUGIN_DATA="$TMP/data" bash "$SCRIPTS/setup.sh" status 2>&1 </dev/null)"; code=$?
+[[ $code == 0 && "$out" == *"moodle-mcp"* && "$out" == *"Telegram не подключён"* ]] && pass "status" || fail "status" "exit $code: $out"
+out="$(HOME="$TMP/shome" PATH=/usr/bin:/bin bash "$SCRIPTS/setup.sh" bogus 2>&1 </dev/null)"; code=$?
+[[ $code != 0 && "$out" == *"неизвестная команда"* ]] && pass "unknown command rejected" || fail "unknown command rejected" "$out"
 
 echo "== typst-gost"
 DOC="$TMP/doc"
