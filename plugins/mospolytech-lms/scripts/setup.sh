@@ -17,7 +17,7 @@ set -uo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 TELEGRAM_MCP_REPO=https://github.com/chigwell/telegram-mcp.git
 TELEGRAM_MCP_TAG=v3.3.4          # PyPI "telegram-mcp" is a different project: always install from git
-LK_IMAGE_TAG=1.0.1               # ghcr.io/edeev/mospolytech-mcp
+LK_IMAGE_TAG=1.0.0               # ghcr.io/edeev/mospolytech-mcp
 LK_PORT=8770                     # 8765 is telegram-mcp's default HTTP port
 
 is_windows() { case "$(uname -s)" in MINGW*|MSYS*|CYGWIN*) return 0 ;; esac; return 1; }
