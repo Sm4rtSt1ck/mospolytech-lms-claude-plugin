@@ -48,6 +48,9 @@ else
       "failed: unitask:"*|"failed: pandoc:"*)
         warnings+=("mospolytech-lms: не удалось установить ${line#failed: }. Остальное работает; повторная попытка — при следующем запуске.") ;;
       "path-added: "*) path_added+=("${line#path-added: }") ;;
+      "failed: user-path:"*)
+        warnings+=("mospolytech-lms: не удалось добавить unitask в терминал: ${line#failed: user-path: }. Запустите его полным путём: ${DATA}/unitask/unitask") ;;
+      "path-skipped: "*) warnings+=("mospolytech-lms: ${line#path-skipped: } — команда unitask не добавлена.") ;;
       "unsupported platform"*) warnings+=("mospolytech-lms: $line — инструменты не установлены.") ;;
     esac
   done <<< "$out"

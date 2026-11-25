@@ -35,6 +35,14 @@ done
 unbraced="$(LC_ALL=C grep -nE '\$[A-Za-z_][A-Za-z0-9_]*'$'[\x80-\xff]' "$SCRIPTS"/*.sh "$PLUGIN/bin/typst-gost" "$PLUGIN/bin/pdf-pages" "$PLUGIN/bin/unitask" || true)"
 [[ -z "$unbraced" ]] && pass "no \$var right before non-ASCII text" || fail "no \$var right before non-ASCII text" "use \${var}: $unbraced"
 
+# Scripts run by path (hooks, install.sh, bin/ on the Bash tool PATH) need +x in git itself:
+# core.fileMode=false checkouts drop a chmod that was never staged.
+if command -v git >/dev/null && git -C "$REPO" rev-parse >/dev/null 2>&1; then
+  noexec="$(git -C "$REPO" ls-files -s -- plugins/mospolytech-lms/scripts plugins/mospolytech-lms/bin .github/scripts \
+            | awk '$1 != "100755" && $4 !~ /\.ps1$/ && $4 !~ /hook-lib\.sh$/ { print $4 }')"
+  [[ -z "$noexec" ]] && pass "scripts are executable in git" || fail "scripts are executable in git" "git update-index --chmod=+x $noexec"
+fi
+
 # Windows PowerShell 5.1 reads a .ps1 without BOM as ANSI and mangles the Russian text into a parse error.
 for f in "$PLUGIN"/bin/*.ps1 "$PLUGIN"/scripts/*.ps1; do
   if [[ "$(head -c3 "$f" | od -An -tx1 | tr -d ' \n')" == efbbbf ]]; then pass "UTF-8 BOM ${f#"$REPO"/}"

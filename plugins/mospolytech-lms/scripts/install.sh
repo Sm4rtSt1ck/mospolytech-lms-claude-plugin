@@ -153,8 +153,11 @@ fi
 try optional unitask unitask "$UNITASK_VERSION" \
   "https://github.com/$UNITASK_REPO/releases/download/unitask-v$UNITASK_VERSION/unitask-$UNITASK_VERSION-$TARGET.$UNITASK_EXT" \
   "$DATA/unitask"
+# Through bash, not by its executable bit: a lost +x must not silently leave unitask off the PATH.
 if [[ -x "$DATA/unitask/unitask$EXE" && "${LMS_NO_USER_PATH:-}" != 1 ]]; then
-  "$ROOT/scripts/user-path.sh" "$DATA/unitask" || true
+  if ! err="$(bash "$ROOT/scripts/user-path.sh" "$DATA/unitask" 2>&1 1>&3)"; then
+    echo "failed: user-path: ${err##*$'\n'}"
+  fi
 fi
 
 # online.mospolytech.ru serves its certificate without the GlobalSign intermediate. Browsers,
