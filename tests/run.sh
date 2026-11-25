@@ -27,7 +27,7 @@ expect() {
 }
 
 echo "== syntax"
-for f in "$SCRIPTS"/*.sh "$PLUGIN/bin/typst-gost" "$PLUGIN/bin/pdf-pages" "$PLUGIN/bin/unitask" "$REPO/tests/run.sh"; do
+for f in "$SCRIPTS"/*.sh "$REPO"/.github/scripts/*.sh "$PLUGIN/bin/typst-gost" "$PLUGIN/bin/pdf-pages" "$PLUGIN/bin/unitask" "$REPO/tests/run.sh"; do
   if bash -n "$f"; then pass "bash -n ${f#"$REPO"/}"; else fail "bash -n ${f#"$REPO"/}"; fi
 done
 
@@ -173,6 +173,28 @@ out="$(PATH="$TMP/nocurl:$PATH" CLAUDE_PLUGIN_DATA="$IN_DATA" bash "$SCRIPTS/ins
 rm -f "$IN_DATA/bin/.typst-version"
 out="$(PATH="$TMP/nocurl:$PATH" CLAUDE_PLUGIN_DATA="$IN_DATA" bash "$SCRIPTS/install.sh" 2>&1)"; code=$?
 [[ $code != 0 && "$out" == *"failed: typst:"* && "$out" != *"failed: moodle-mcp"* ]] && pass "required tool failure reported alone" || fail "required tool failure reported alone" "exit $code: $out"
+
+echo "== pin-unitask.sh (release checksums into install.sh, on a copy)"
+PIN="$TMP/pin"
+mkdir -p "$PIN/.github/scripts" "$PIN/plugins/mospolytech-lms/scripts" "$PIN/plugins/mospolytech-lms/.claude-plugin"
+cp "$REPO/.github/scripts/pin-unitask.sh" "$PIN/.github/scripts/"
+cp "$SCRIPTS/install.sh" "$PIN/plugins/mospolytech-lms/scripts/"
+cp "$PLUGIN/.claude-plugin/plugin.json" "$PIN/plugins/mospolytech-lms/.claude-plugin/"
+for t in x86_64-unknown-linux-gnu.tar.gz aarch64-unknown-linux-gnu.tar.gz x86_64-apple-darwin.tar.gz aarch64-apple-darwin.tar.gz x86_64-pc-windows-msvc.zip; do
+  printf '%s  unitask-9.8.7-%s\n' "$(printf 'a%.0s' $(seq 64))" "$t"
+done > "$PIN/SUMS"
+before="$(sed -n 's/^  "version": "\(.*\)".*/\1/p' "$PIN/plugins/mospolytech-lms/.claude-plugin/plugin.json")"
+out="$(bash "$PIN/.github/scripts/pin-unitask.sh" 9.8.7 "$PIN/SUMS" 2>&1)"; code=$?
+after="$(sed -n 's/^  "version": "\(.*\)".*/\1/p' "$PIN/plugins/mospolytech-lms/.claude-plugin/plugin.json")"
+pinned="$PIN/plugins/mospolytech-lms/scripts/install.sh"
+if [[ $code == 0 ]] && grep -q '^UNITASK_VERSION=9.8.7 ' "$pinned" \
+   && [[ "$(grep -c 'unitask-9.8.7-.*echo a\{64\} ;;' "$pinned")" == 5 ]] && [[ "$after" != "$before" ]]; then
+  pass "version, 5 checksums and plugin version bump written"
+else fail "version, 5 checksums and plugin version bump written" "exit $code: $out"; fi
+bash "$PIN/.github/scripts/pin-unitask.sh" 9.8.7 "$PIN/SUMS" >/dev/null 2>&1
+[[ "$(grep -c 'unitask-9.8.7-' "$pinned")" == 5 ]] && pass "re-pinning replaces, not appends" || fail "re-pinning replaces, not appends"
+head -2 "$PIN/SUMS" > "$PIN/SUMS2"
+bash "$PIN/.github/scripts/pin-unitask.sh" 9.8.8 "$PIN/SUMS2" >/dev/null 2>&1 && fail "incomplete release refused" || pass "incomplete release refused"
 
 echo "== user-path.sh (fake HOME)"
 case "$(uname -s)" in

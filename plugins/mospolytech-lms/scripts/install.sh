@@ -11,7 +11,7 @@ set -uo pipefail
 MOODLE_MCP_VERSION=0.2.1   # bump together with expected_sha256 below
 TYPST_VERSION=0.15.1
 PANDOC_VERSION=3.13
-UNITASK_VERSION=0.1.0      # built by .github/workflows/unitask-release.yml from unitask/
+UNITASK_VERSION=0.1.0      # set together with the unitask checksums by .github/workflows/unitask-release.yml
 UNITASK_REPO=Sm4rtSt1ck/mospolytech-lms-claude-plugin
 
 ROOT="${CLAUDE_PLUGIN_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
@@ -55,7 +55,8 @@ expected_sha256() {
     pandoc-3.13-arm64-macOS.zip)                       echo f436d18bebbfb3ddd326597686dacab9fac5dc23bd060495020f35a28a43a7c3 ;;
     pandoc-3.13-x86_64-macOS.zip)                      echo 1823278715aa405aaf21b59cde5dc789346aa8d4fc307467f9a9ee84162bedc5 ;;
     pandoc-3.13-windows-x86_64.zip)                    echo 23e1f2e978a3df80db8bf65c9c59534f41a23140480cfb4f783a882ab7dc6a4e ;;
-    # unitask-0.1.0-*: added after the first unitask release (see .github/workflows/unitask-release.yml)
+    # unitask:begin — written by .github/workflows/unitask-release.yml, do not edit by hand
+    # unitask:end
   esac
 }
 

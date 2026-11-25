@@ -1,9 +1,11 @@
 name: unitask release
 
-# Push a tag "unitask-v<version>" to build unitask for every platform the plugin supports and publish
-# the archives as a GitHub release of this repository. install.sh downloads them from there and checks
-# the SHA-256 recorded in its expected_sha256 table, so after a release copy the digests into it:
-#   gh api repos/<owner>/<repo>/releases/tags/unitask-v<version> --jq '.assets[] | .name + " " + .digest'
+# Push a tag "unitask-v<version>" to build unitask for every platform the plugin supports, publish the
+# archives as a GitHub release of this repository and pin them in the plugin: the last step writes the
+# version and SHA-256 of each archive into install.sh (.github/scripts/pin-unitask.sh), bumps the
+# plugin's patch version and pushes that commit to main. install.sh refuses any archive whose checksum
+# differs, so a release asset replaced later never reaches users.
+# The push uses GITHUB_TOKEN and therefore does not start the CI workflow; the next push will.
 on:
   push:
     tags: ["unitask-v*"]
@@ -58,3 +60,22 @@ jobs:
           gh release create "$GITHUB_REF_NAME" --title "unitask ${GITHUB_REF_NAME#unitask-v}" \
             --notes "TUI-канбан для progress.json. Ставится плагином mospolytech-lms автоматически." \
             dist/*.tar.gz dist/*.zip dist/SHA256SUMS
+      # The tag may point to any commit; the pin goes on top of the current main.
+      - name: Pin the release in install.sh and push to main
+        working-directory: .
+        run: |
+          version="${GITHUB_REF_NAME#unitask-v}"
+          cp unitask/dist/SHA256SUMS "$RUNNER_TEMP/SHA256SUMS"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          for attempt in 1 2 3; do
+            git fetch -q origin main
+            git checkout -q -B main origin/main
+            bash .github/scripts/pin-unitask.sh "$version" "$RUNNER_TEMP/SHA256SUMS"
+            git add plugins/mospolytech-lms/scripts/install.sh plugins/mospolytech-lms/.claude-plugin/plugin.json
+            git commit -q -m "unitask $version: pin release checksums in install.sh"
+            git push -q origin main && exit 0
+            echo "main moved, retrying ($attempt)"
+          done
+          echo "::error::could not push the pin commit; run .github/scripts/pin-unitask.sh $version SHA256SUMS locally"
+          exit 1

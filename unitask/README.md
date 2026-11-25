@@ -12,7 +12,7 @@ GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go build -o unitask.exe .
 GOOS=darwin  GOARCH=arm64 CGO_ENABLED=0 go build -o unitask-mac .
 ```
 
-Релизы собирает GitHub Actions (`.github/workflows/unitask-release.yml`) по тегу `unitask-v<версия>`: Linux x86_64/aarch64, macOS x86_64/arm64, Windows x86_64.
+Релизы собирает GitHub Actions (`.github/workflows/unitask-release.yml`) по тегу `unitask-v<версия>`: Linux x86_64/aarch64, macOS x86_64/arm64, Windows x86_64. Тот же workflow вписывает версию и SHA-256 архивов в `install.sh` плагина и коммитит это в `main`, так что выпуск — это только тег.
 
 ## Запуск
 
