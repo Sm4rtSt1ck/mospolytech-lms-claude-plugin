@@ -205,6 +205,28 @@ lk_compose_files() {
 }
 lk_compose() { (cd "$STATE/lk-mcp" && "${DOCKER[@]}" compose "${COMPOSE_ARGS[@]}" "$@"); }
 
+# Postgres applies POSTGRES_PASSWORD only when it creates the database. If the pgdata volume is older
+# than this .env (the folder was deleted and set up again, or an earlier attempt), migrate and the
+# server fail with "password authentication failed". Start the database alone and set the password
+# from .env over the container's local socket (trusted, no password needed); idempotent, keeps data.
+lk_sync_db_password() {
+  local envf="$STATE/lk-mcp/.env" user db pw i
+  user="$(sed -n 's/^POSTGRES_USER=//p' "$envf")"
+  db="$(sed -n 's/^POSTGRES_DB=//p' "$envf")"
+  pw="$(sed -n 's/^POSTGRES_PASSWORD=//p' "$envf")"
+  [[ -n "$user" && -n "$db" && "$pw" =~ ^[0-9a-f]+$ ]] || die "в $envf нет пароля базы; удалите файл и повторите setup.sh lk"
+  lk_compose up -d db || die "не удалось запустить базу; подробности: cd \"$STATE/lk-mcp\" && docker compose logs db"
+  # The first start initialises the data directory with a temporary server; retry until it is done.
+  for i in $(seq 1 30); do
+    if printf "ALTER USER \"%s\" PASSWORD '%s';\n" "$user" "$pw" \
+         | lk_compose exec -T db psql -q -v ON_ERROR_STOP=1 -U "$user" -d "$db" >/dev/null 2>&1; then
+      return 0
+    fi
+    sleep 2
+  done
+  die "не удалось выставить пароль базы; подробности: cd \"$STATE/lk-mcp\" && docker compose logs db"
+}
+
 lk() {
   local dir="$STATE/lk-mcp"
   if [[ "${1:-}" == --down ]]; then
@@ -237,6 +259,7 @@ lk() {
   if [[ "${COMPOSE_ARGS[*]}" == *host* ]]; then
     say "Сервер работает в сети хоста: исключения доменов в VPN-клиенте действуют и на него."
   fi
+  lk_sync_db_password
   lk_compose up -d --remove-orphans || die "docker compose up завершился ошибкой; подробности: cd \"$dir\" && docker compose ${COMPOSE_ARGS[*]} logs"
   local i
   for i in $(seq 1 60); do
