@@ -13,22 +13,6 @@
 
 ## Установка
 
-### Одним промптом
-
-Откройте Claude Code в любой папке и напишите:
-
-```
-Установи плагин https://github.com/Sm4rtSt1ck/mospolytech-lms-claude-plugin вместе со всеми зависимостями и MCP
-```
-
-или, если Telegram и личный кабинет не нужны:
-
-```
-Установи плагин https://github.com/Sm4rtSt1ck/mospolytech-lms-claude-plugin, но telegram-mcp и mospolytech-mcp ставить не нужно
-```
-
-Claude прочитает раздел [«Для Claude: как установить плагин»](#для-claude-как-установить-плагин), спросит рабочую папку, установит плагин и скажет, какие команды выполнить в терминале: вход в LMS и в Telegram требует пароля или кода, а их вводите только вы. Подготовка ниже (VPN, poppler) остаётся на вас.
-
 ### Подготовка
 
 1. Нужен [Claude Code](https://code.claude.com) 2.1.275 или новее и учётная запись в LMS. В Windows — ещё [Git for Windows](https://git-scm.com/download/win): хуки плагина выполняются в Git Bash. Остальное плагин ставит сам.
@@ -42,9 +26,27 @@ brew install poppler                    # macOS
 winget install oschwartz10612.Poppler   # Windows
 ```
 
-3. Claude Code не работает без VPN, а LMS может не работать с VPN. Для того чтобы решить эту проблему, воспользуйтесь раздельным туннелированием в вашем VPN-клиенте, либо в настройках маршрутизации в клиенте добавьте в исключения `online.mospolytech.ru` (или все домены в зоне `.ru`), либо используйте [HTTP-прокси](https://code.claude.com/docs/en/network-config) вместо туннелирования (на свой [страх](https://habr.com/ru/companies/aurorium/news/1089498/) и [риск](https://vietbui.mintlify.app/concepts/webrtc-ip-leak)).
+3. Claude Code не работает без VPN, а LMS и ЛК могут не работать с VPN. Для того чтобы решить эту проблему, воспользуйтесь раздельным туннелированием в вашем VPN-клиенте через per-app режим, либо в настройках маршрутизации в клиенте добавьте в исключения `*.mospolytech.ru` и `*.dmami.ru`, (или все домены в зоне `.ru`) либо используйте [HTTP-прокси для Claude Code](https://code.claude.com/docs/en/network-config) вместо туннелирования (на свой [страх](https://habr.com/ru/companies/aurorium/news/1089498/) и [риск](https://vietbui.mintlify.app/concepts/webrtc-ip-leak)).
 
 ### Подключение плагина
+
+#### Одним промптом
+
+Откройте Claude Code в любой папке и напишите:
+
+```
+Установи плагин https://github.com/Sm4rtSt1ck/mospolytech-lms-claude-plugin вместе со всеми зависимостями и MCP
+```
+
+или, если Telegram и личный кабинет не нужны:
+
+```
+Установи плагин https://github.com/Sm4rtSt1ck/mospolytech-lms-claude-plugin, но telegram-mcp и mospolytech-mcp ставить не нужно
+```
+
+Claude прочитает раздел [«Для Claude: как установить плагин»](#для-claude-как-установить-плагин), спросит рабочую папку, установит плагин и скажет, какие команды выполнить в терминале: вход в LMS и в Telegram требует пароля или кода, а их вводите только вы.
+
+#### Вручную
 
 1. Добавьте маркетплейс, установите плагин и укажите **рабочую папку** — там будут профиль, кеш курсов и выполненные работы. Остальные настройки можно оставить по умолчанию.
 
