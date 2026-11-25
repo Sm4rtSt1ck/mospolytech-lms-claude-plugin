@@ -26,6 +26,8 @@ is_windows() { case "$(uname -s)" in MINGW*|MSYS*|CYGWIN*) return 0 ;; esac; ret
 is_wsl() { grep -qi microsoft /proc/version 2>/dev/null; }
 native() { if is_windows && command -v cygpath >/dev/null; then cygpath -w "$1"; else printf '%s' "$1"; fi; }
 tty_ok() { [[ -t 0 && -t 1 ]]; }
+# Where to run interactive steps: a real terminal window. "! command" in Claude Code has no TTY.
+in_terminal() { printf 'в отдельном окне терминала (не через «!» в Claude Code — там нельзя ввести пароль): %s %s' "$(native "$ROOT/scripts/setup.sh")" "$1"; }
 if [[ -t 1 ]]; then G=$'\033[32m' Y=$'\033[33m' R=$'\033[31m' N=$'\033[0m'; else G="" Y="" R="" N=""; fi
 ok()   { printf '  %s✓%s %s\n' "$G" "$N" "$*"; }
 no()   { printf '  %s·%s %s\n' "$Y" "$N" "$*"; }
@@ -113,21 +115,30 @@ status() {
   if mcp_registered mospolytech; then ok "Личный кабинет (mospolytech-mcp) подключён"
   else no "Личный кабинет не подключён — setup.sh lk (нужен Docker)"; fi
   if command -v docker >/dev/null; then
-    if docker info >/dev/null 2>&1; then ok "Docker работает"; else no "Docker установлен, но не запущен"; fi
+    local derr
+    if derr="$(docker info 2>&1 >/dev/null)"; then ok "Docker работает"
+    elif [[ "$derr" == *"permission denied"* ]]; then no "Docker работает, но у $USER нет доступа (группа docker) — setup.sh lk подскажет"
+    else no "Docker установлен, но не запущен"; fi
   else no "Docker не установлен (нужен только для личного кабинета)"; fi
 }
 
 # ---------------------------------------------------------------- docker
+DOCKER=(docker)
 ensure_docker() {
   if command -v docker >/dev/null && docker compose version >/dev/null 2>&1; then
-    docker info >/dev/null 2>&1 && return 0
+    local err
+    err="$(docker info 2>&1 >/dev/null)" && return 0
     if is_windows || [[ "$(uname -s)" == Darwin ]]; then
       die "Docker установлен, но не запущен. Запустите Docker Desktop и повторите: setup.sh lk"
     fi
-    die "Docker установлен, но служба не запущена или нет прав. Попробуйте: sudo systemctl start docker; sudo usermod -aG docker \$USER (затем перелогиньтесь) — и повторите setup.sh lk"
+    if [[ "$err" == *"permission denied"* ]]; then
+      docker_permission
+      return 0
+    fi
+    die "Служба Docker не запущена. Выполните: sudo systemctl start docker — и повторите setup.sh lk"
   fi
   say "Для личного кабинета нужен Docker (сервер и база данных работают в контейнерах)."
-  tty_ok || die "Docker не установлен. Запустите в терминале: $(native "$ROOT/scripts/setup.sh") lk — скрипт предложит установить Docker."
+  tty_ok || die "Docker не установлен. Запустите $(in_terminal lk) — скрипт предложит установить Docker."
   if is_windows; then
     command -v winget >/dev/null || die "Установите Docker Desktop: https://docs.docker.com/desktop/setup/install/windows-install/ — и повторите setup.sh lk"
     ask_yes "Установить Docker Desktop через winget?" || die "Установите Docker Desktop вручную и повторите setup.sh lk"
@@ -158,12 +169,33 @@ ensure_docker() {
   fi
 }
 
+# The daemon runs, but this user may not talk to /var/run/docker.sock: not in the "docker" group,
+# or added to it after this login session started (group membership applies to new sessions only).
+docker_permission() {
+  local in_group=false
+  getent group docker 2>/dev/null | cut -d: -f4 | tr ',' '\n' | grep -qx "$USER" && in_group=true
+  if $in_group; then
+    say "Вы уже в группе docker, но эта сессия входа старше: группа применяется после нового входа."
+    say "Выйдите из системы и войдите снова (или выполните в этом терминале: newgrp docker)."
+  else
+    say "Docker работает, но у пользователя $USER нет к нему доступа (нет в группе docker)."
+    if ask_yes "Добавить $USER в группу docker (sudo usermod -aG docker $USER)?"; then
+      sudo usermod -aG docker "$USER" && say "Готово. Группа заработает после нового входа в систему (или: newgrp docker)."
+    fi
+  fi
+  tty_ok && command -v sudo >/dev/null || die "Повторите setup.sh lk после нового входа в систему."
+  ask_yes "Продолжить сейчас через sudo docker?" || die "Повторите setup.sh lk после нового входа в систему."
+  sudo docker info >/dev/null 2>&1 || die "sudo docker тоже не работает: проверьте sudo systemctl status docker"
+  DOCKER=(sudo docker)
+}
+
 # ---------------------------------------------------------------- lk
 lk() {
   local dir="$STATE/lk-mcp"
   if [[ "${1:-}" == --down ]]; then
     [[ -f "$dir/docker-compose.yaml" ]] || die "сервер личного кабинета не устанавливался"
-    (cd "$dir" && docker compose down) && ok "сервер личного кабинета остановлен (данные сохранены)"
+    ensure_docker
+    (cd "$dir" && "${DOCKER[@]}" compose down) && ok "сервер личного кабинета остановлен (данные сохранены)"
     return
   fi
   ensure_docker
@@ -173,7 +205,7 @@ lk() {
     say "Создаю настройки сервера (пароль базы и ключ шифрования — случайные)…"
     local pw key
     pw="$(od -An -N16 -tx1 /dev/urandom | tr -d ' \n')"
-    key="$(docker run --rm "$LK_IMAGE" python -m mospolytech_mcp.crypto | tr -d '\r\n')" \
+    key="$("${DOCKER[@]}" run --rm "$LK_IMAGE" python -m mospolytech_mcp.crypto | tr -d '\r\n')" \
       || die "не удалось скачать образ mospolytech-mcp"
     [[ -n "$key" ]] || die "образ не выдал ключ шифрования"
     (umask 077; printf 'POSTGRES_DB=mospolytech_mcp\nPOSTGRES_USER=mospolytech_mcp\nPOSTGRES_PASSWORD=%s\nMCP_SECRET_KEY=%s\nLK_PORT=%s\n' \
@@ -184,7 +216,7 @@ lk() {
   printf 'LK_IMAGE=%s\n' "$LK_IMAGE" >> "$dir/.env.new"
   (umask 077; cat "$dir/.env.new" > "$dir/.env"); rm -f "$dir/.env.new"
   say "Запускаю сервер личного кабинета (первый раз скачивается ~200 МБ)…"
-  (cd "$dir" && docker compose up -d) || die "docker compose up завершился ошибкой; подробности: cd \"$dir\" && docker compose logs"
+  (cd "$dir" && "${DOCKER[@]}" compose up -d) || die "docker compose up завершился ошибкой; подробности: cd \"$dir\" && docker compose logs"
   local i
   for i in $(seq 1 60); do
     curl -fsS "http://127.0.0.1:$LK_PORT/health" >/dev/null 2>&1 && break
@@ -227,6 +259,17 @@ find_uv() {
   return 1
 }
 
+# The generator names the session TELEGRAM_SESSION_STRING_<LABEL> when an account label was typed.
+# The server is registered for the default account, so copy the first labelled session to the
+# default name (the labelled line stays; nothing is lost).
+promote_labelled_session() {
+  local envf=$1 line
+  grep -q '^TELEGRAM_SESSION_STRING=.' "$envf" 2>/dev/null && return 0
+  line="$(grep -m1 '^TELEGRAM_SESSION_STRING_[A-Za-z0-9_]*=.' "$envf" 2>/dev/null)" || return 0
+  (umask 077; printf 'TELEGRAM_SESSION_STRING=%s\n' "${line#*=}" >> "$envf")
+  ok "сессия ${line%%=*} сохранена и как TELEGRAM_SESSION_STRING"
+}
+
 telegram() {
   local dir="$STATE/telegram-mcp" uv
   if mcp_registered telegram; then
@@ -237,7 +280,7 @@ telegram() {
   command -v git >/dev/null || die "нужен git"
   if ! uv="$(find_uv)"; then
     say "telegram-mcp ставится через uv (менеджер Python-окружений, ставится в домашнюю папку без sudo)."
-    tty_ok || die "uv не установлен. Запустите в терминале: $(native "$ROOT/scripts/setup.sh") telegram"
+    tty_ok || die "uv не установлен. Запустите $(in_terminal telegram)"
     ask_yes "Установить uv официальным установщиком astral.sh?" || die "Установите uv (https://docs.astral.sh/uv/) и повторите setup.sh telegram"
     if is_windows; then
       powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "irm https://astral.sh/uv/install.ps1 | iex" || die "установка uv завершилась ошибкой"
@@ -262,7 +305,7 @@ telegram() {
 
   local envf="$dir/.env"
   if ! grep -q '^TELEGRAM_API_ID=[0-9]' "$envf" 2>/dev/null || ! grep -q '^TELEGRAM_API_HASH=.' "$envf" 2>/dev/null; then
-    tty_ok || die "Дальше нужен вход в Telegram. Запустите в терминале: $(native "$ROOT/scripts/setup.sh") telegram"
+    tty_ok || die "Дальше нужен вход в Telegram. Запустите $(in_terminal telegram)"
     say ""
     say "Нужны api_id и api_hash вашего Telegram-приложения: https://my.telegram.org/apps"
     say "(войдите номером телефона → API development tools → создайте приложение с любым названием)."
@@ -274,13 +317,16 @@ telegram() {
     (umask 077; printf 'TELEGRAM_API_ID=%s\nTELEGRAM_API_HASH=%s\n' "$id" "$hash" > "$envf")
   fi
   chmod 600 "$envf" 2>/dev/null || true
+  promote_labelled_session "$envf"
   if ! grep -q '^TELEGRAM_SESSION_STRING=.' "$envf"; then
-    tty_ok || die "Дальше нужен вход в Telegram. Запустите в терминале: $(native "$ROOT/scripts/setup.sh") telegram"
+    tty_ok || die "Дальше нужен вход в Telegram. Запустите $(in_terminal telegram)"
     say ""
     say "Вход в Telegram. Удобнее по QR-коду: Telegram на телефоне → Настройки → Устройства → Подключить устройство."
-    say "В конце генератор спросит «update your .env file?» — ответьте y."
+    say "На вопрос «Account label» просто нажмите Enter, а в конце на «update your .env file?» ответьте y."
     (cd "$dir" && "$uv" run -q session_string_generator.py --qr) || die "вход в Telegram не удался; повторите setup.sh telegram"
-    grep -q '^TELEGRAM_SESSION_STRING=.' "$envf" || die "сессия не сохранена в .env (нужно было ответить y). Повторите setup.sh telegram"
+    promote_labelled_session "$envf"
+    grep -q '^TELEGRAM_SESSION_STRING=.' "$envf" \
+      || die "сессия не сохранена в $envf (на последний вопрос генератора нужно ответить y). Повторите setup.sh telegram"
     chmod 600 "$envf" 2>/dev/null || true
   fi
   ok "вход в Telegram выполнен (ключи — в $envf, доступ только у вас)"

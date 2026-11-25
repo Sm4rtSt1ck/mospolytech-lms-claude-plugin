@@ -95,7 +95,7 @@ Claude прочитает раздел [«Для Claude: как установи
 
    На Windows рабочую папку пиши с прямыми слэшами: `C:/University/mospolytech`. Если плагин уже установлен — `claude plugin update mospolytech-lms@mospolytech` и `claude plugin configure mospolytech-lms@mospolytech --values-stdin` с теми же значениями (JSON-объект строк).
 3. Инструменты (moodle-mcp, Typst, pandoc, unitask) плагин скачивает сам при старте сессии — отдельно их не ставь. Чтобы скачать их сразу, а не после перезапуска, запусти `claude -p "ok"` в рабочей папке и дождись завершения.
-4. Скажи пользователю, что выполнить **в своём терминале** (путь к плагину — `~/.claude/plugins/cache/mospolytech/mospolytech-lms/<версия>/`, найди его через `ls`):
+4. Скажи пользователю, что выполнить **в отдельном окне терминала** — не предлагай префикс `!` в Claude Code: там нет TTY, и скрипты не смогут спросить пароль или код (путь к плагину — `~/.claude/plugins/cache/mospolytech/mospolytech-lms/<версия>/`, найди его через `ls`):
    - вход в LMS: `bash <плагин>/scripts/setup.sh lms` (Windows: `powershell -ExecutionPolicy Bypass -File <плагин>\scripts\setup.ps1 lms`);
    - если выбран Telegram: `… setup.sh telegram` — понадобятся api_id и api_hash с https://my.telegram.org/apps и вход по QR-коду;
    - если выбран личный кабинет: `… setup.sh lk` — поставит Docker (спросит), поднимет сервер и попросит ключ со страницы входа.

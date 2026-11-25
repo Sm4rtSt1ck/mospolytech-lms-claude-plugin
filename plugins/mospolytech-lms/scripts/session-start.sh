@@ -118,7 +118,7 @@ fi
 lms_status="не проверено"
 if [[ -z "$TOKEN" ]]; then
   lms_status="токен не задан"
-  warnings+=("mospolytech-lms: нет токена LMS. Выполните в терминале: $LOGIN_CMD — скрипт спросит логин и пароль от LMS и сохранит токен в настройки плагина. Затем перезапустите сессию.")
+  warnings+=("mospolytech-lms: нет токена LMS. Выполните в отдельном окне терминала (не через «!» в Claude Code): $LOGIN_CMD — скрипт спросит логин и пароль от LMS и сохранит токен в настройки плагина. Затем перезапустите сессию.")
 elif command -v curl >/dev/null; then
   cacert=()
   [[ -n "$DATA" && -s "$DATA/ca-bundle.pem" ]] && ! is_windows && cacert=(--cacert "$DATA/ca-bundle.pem")
@@ -152,10 +152,10 @@ mcp_registered() {
 }
 opt_on() { case "$1" in true|1|yes|да) return 0 ;; esac; return 1; }
 if opt_on "${CLAUDE_PLUGIN_OPTION_CONNECT_TELEGRAM:-}" && ! mcp_registered telegram; then
-  warnings+=("mospolytech-lms: в настройках отмечен Telegram, но telegram-mcp не подключён. Выполните в терминале: $SETUP_CMD telegram")
+  warnings+=("mospolytech-lms: в настройках отмечен Telegram, но telegram-mcp не подключён. Выполните в отдельном окне терминала (не через «!» в Claude Code): $SETUP_CMD telegram")
 fi
 if opt_on "${CLAUDE_PLUGIN_OPTION_CONNECT_LK:-}" && ! mcp_registered mospolytech; then
-  warnings+=("mospolytech-lms: в настройках отмечен личный кабинет, но mospolytech-mcp не подключён. Выполните в терминале: $SETUP_CMD lk")
+  warnings+=("mospolytech-lms: в настройках отмечен личный кабинет, но mospolytech-mcp не подключён. Выполните в отдельном окне терминала (не через «!» в Claude Code): $SETUP_CMD lk")
 fi
 
 if ((${#path_added[@]})); then

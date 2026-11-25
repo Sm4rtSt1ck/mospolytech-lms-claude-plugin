@@ -17,6 +17,13 @@ fi
 
 [[ -s "$DATA/ca-bundle.pem" && "$(uname -s)" == Linux ]] && export SSL_CERT_FILE="$DATA/ca-bundle.pem"
 
+# moodle-mcp asks for the password on the terminal; "! command" in Claude Code has none.
+if [[ ! -t 0 && -z "${LMS_LOGIN_NO_TTY_CHECK:-}" ]]; then   # the variable is for tests/run.sh only
+  echo "Нужен настоящий терминал: запустите эту команду в отдельном окне терминала, а не через «!» в Claude Code —" >&2
+  echo "там нельзя ввести логин и пароль:  bash \"$0\"" >&2
+  exit 1
+fi
+
 echo "Вход в LMS $URL: введите логин и пароль (пароль нигде не сохраняется)."
 # Prompts go to the terminal; stdout carries Moodle's token.php JSON: {"token":"…","privatetoken":…}
 out="$("$DATA/bin/moodle-mcp" auth --url "$URL" --output json)"

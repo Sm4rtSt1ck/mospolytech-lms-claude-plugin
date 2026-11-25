@@ -227,6 +227,14 @@ out="$(HOME="$TMP/shome" PATH=/usr/bin:/bin CLAUDE_PLUGIN_DATA="$TMP/data" bash 
 [[ $code == 0 && "$out" == *"moodle-mcp"* && "$out" == *"Telegram не подключён"* ]] && pass "status" || fail "status" "exit $code: $out"
 out="$(HOME="$TMP/shome" PATH=/usr/bin:/bin bash "$SCRIPTS/setup.sh" bogus 2>&1 </dev/null)"; code=$?
 [[ $code != 0 && "$out" == *"неизвестная команда"* ]] && pass "unknown command rejected" || fail "unknown command rejected" "$out"
+eval "$(sed -n '/^ok() /p;/^promote_labelled_session()/,/^}$/p' "$SCRIPTS/setup.sh")"
+G="" N=""
+printf 'TELEGRAM_API_ID=1\nTELEGRAM_API_HASH=x\nTELEGRAM_SESSION_STRING_PERSONAL=abc123\n' > "$TMP/tg.env"
+promote_labelled_session "$TMP/tg.env" >/dev/null
+grep -qx 'TELEGRAM_SESSION_STRING=abc123' "$TMP/tg.env" && grep -q '^TELEGRAM_SESSION_STRING_PERSONAL=abc123' "$TMP/tg.env" \
+  && pass "labelled Telegram session copied to the default name" || fail "labelled Telegram session copied to the default name" "$(cat "$TMP/tg.env")"
+promote_labelled_session "$TMP/tg.env" >/dev/null
+[[ "$(grep -c '^TELEGRAM_SESSION_STRING=' "$TMP/tg.env")" == 1 ]] && pass "default session not duplicated" || fail "default session not duplicated"
 
 echo "== typst-gost"
 DOC="$TMP/doc"
@@ -294,14 +302,16 @@ cat > "$FAKE/path/claude" <<EOF
 cat > "$FAKE/saved.json"
 EOF
 chmod +x "$FAKE/data/bin/moodle-mcp" "$FAKE/path/claude"
-out="$(PATH="$FAKE/path:$PATH" CLAUDE_PLUGIN_DATA="$FAKE/data" bash "$SCRIPTS/login.sh" https://lms.example 2>&1 </dev/null)"
+out="$(PATH="$FAKE/path:$PATH" CLAUDE_PLUGIN_DATA="$FAKE/data" bash "$SCRIPTS/login.sh" https://lms.example 2>&1 </dev/null)"; code=$?
+[[ $code != 0 && "$out" == *"отдельном окне терминала"* && ! -f "$FAKE/saved.json" ]] && pass "no TTY: clear message, nothing saved" || fail "no TTY: clear message, nothing saved" "exit $code: $out"
+out="$(PATH="$FAKE/path:$PATH" LMS_LOGIN_NO_TTY_CHECK=1 CLAUDE_PLUGIN_DATA="$FAKE/data" bash "$SCRIPTS/login.sh" https://lms.example 2>&1 </dev/null)"
 if grep -q '"moodle_token":"0123456789abcdef0123456789abcdef"' "$FAKE/saved.json" 2>/dev/null \
    && grep -q '"moodle_url":"https://lms.example"' "$FAKE/saved.json"; then
   pass "token parsed and saved"
 else
   fail "token parsed and saved" "$out | saved: $(cat "$FAKE/saved.json" 2>/dev/null)"
 fi
-out="$(PATH="$FAKE/path:$PATH" FAKE_CLAUDE_FAIL=1 CLAUDE_PLUGIN_DATA="$FAKE/data" bash "$SCRIPTS/login.sh" 2>&1 </dev/null)"
+out="$(PATH="$FAKE/path:$PATH" FAKE_CLAUDE_FAIL=1 LMS_LOGIN_NO_TTY_CHECK=1 CLAUDE_PLUGIN_DATA="$FAKE/data" bash "$SCRIPTS/login.sh" 2>&1 </dev/null)"
 [[ "$out" == *0123456789abcdef0123456789abcdef* ]] && pass "token shown when saving fails" || fail "token shown when saving fails" "$out"
 
 echo

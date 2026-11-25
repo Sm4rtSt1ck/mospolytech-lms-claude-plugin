@@ -32,7 +32,7 @@ model: sonnet
 
 1. Прочитай настройки и профиль. Профиль и папки создаёт хук плагина при старте сессии; если профиля нет — скопируй `${CLAUDE_PLUGIN_ROOT}/profile.example.yaml` в `<ws>/profile.yaml`.
 2. Нужны инструменты сервера `moodle` плагина (`mcp__plugin_mospolytech-lms_moodle__*`). Если их нет — посмотри сообщения mospolytech-lms в начале сессии и передай пользователю:
-   - нет или устарел токен — пусть выполнит в терминале команду получения токена из того сообщения (Linux/macOS/WSL: `bash "${CLAUDE_PLUGIN_ROOT}/scripts/login.sh"`, Windows: `powershell -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}/scripts/login.ps1"`) и перезапустит сессию;
+   - нет или устарел токен — пусть выполнит в отдельном окне терминала (не через `!` в Claude Code — там нет TTY) команду получения токена из того сообщения (Linux/macOS/WSL: `bash "${CLAUDE_PLUGIN_ROOT}/scripts/login.sh"`, Windows: `powershell -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}/scripts/login.ps1"`) и перезапустит сессию;
    - токен есть — `/mcp` → `plugin:mospolytech-lms:moodle` → Reconnect.
 
    Сам эти скрипты не запускай: им нужен терминал для ввода пароля.

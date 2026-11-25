@@ -15,6 +15,11 @@ if (-not $Data) {
   Write-Error 'moodle-mcp не установлен. Откройте Claude Code с включённым плагином mospolytech-lms — он скачает инструменты при старте — и запустите скрипт снова.'
 }
 
+# moodle-mcp asks for the password on the console; "! command" in Claude Code has none.
+if ([Console]::IsInputRedirected) {
+  Write-Error "Нужен настоящий терминал: запустите эту команду в отдельном окне PowerShell, а не через «!» в Claude Code — там нельзя ввести логин и пароль: powershell -ExecutionPolicy Bypass -File `"$PSCommandPath`""
+}
+
 Write-Host "Вход в LMS ${Url}: введите логин и пароль (пароль нигде не сохраняется)."
 # Prompts go to the terminal; stdout carries Moodle's token.php JSON: {"token":"…","privatetoken":…}
 $out = & (Join-Path $Data 'bin\moodle-mcp.exe') auth --url $Url --output json
