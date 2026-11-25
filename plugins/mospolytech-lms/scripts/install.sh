@@ -56,6 +56,11 @@ expected_sha256() {
     pandoc-3.13-x86_64-macOS.zip)                      echo 1823278715aa405aaf21b59cde5dc789346aa8d4fc307467f9a9ee84162bedc5 ;;
     pandoc-3.13-windows-x86_64.zip)                    echo 23e1f2e978a3df80db8bf65c9c59534f41a23140480cfb4f783a882ab7dc6a4e ;;
     # unitask:begin — written by .github/workflows/unitask-release.yml, do not edit by hand
+    unitask-0.1.0-aarch64-apple-darwin.tar.gz)         echo 2efea30baa9fb248bf3ef5f92874c8ac0855a6513963fd050ce343d862f34d0e ;;
+    unitask-0.1.0-aarch64-unknown-linux-gnu.tar.gz)    echo bd6bec8a894314d2950eebdfd626759ba73ee8d50f4499e25e1175c856777a2b ;;
+    unitask-0.1.0-x86_64-apple-darwin.tar.gz)          echo f97c1b6827fa6854dbb332cf3884d4f721c78b4f26b781002712c35e15d4fce9 ;;
+    unitask-0.1.0-x86_64-unknown-linux-gnu.tar.gz)     echo ca35e8d5ae5090bd69a0188a64394a95a8dd70e37a053c495ae2bd8ec524611e ;;
+    unitask-0.1.0-x86_64-pc-windows-msvc.zip)          echo 400557b7ac3ec83d44edacc83fd0073e9bc44174013ed54188c5f73c45572d07 ;;
     # unitask:end
   esac
 }
