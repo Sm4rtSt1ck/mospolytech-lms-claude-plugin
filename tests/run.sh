@@ -227,7 +227,7 @@ out="$(HOME="$TMP/shome" PATH=/usr/bin:/bin CLAUDE_PLUGIN_DATA="$TMP/data" bash 
 [[ $code == 0 && "$out" == *"moodle-mcp"* && "$out" == *"Telegram не подключён"* ]] && pass "status" || fail "status" "exit $code: $out"
 out="$(HOME="$TMP/shome" PATH=/usr/bin:/bin bash "$SCRIPTS/setup.sh" bogus 2>&1 </dev/null)"; code=$?
 [[ $code != 0 && "$out" == *"неизвестная команда"* ]] && pass "unknown command rejected" || fail "unknown command rejected" "$out"
-eval "$(sed -n '/^ok() /p;/^promote_labelled_session()/,/^}$/p' "$SCRIPTS/setup.sh")"
+eval "$(sed -n '/^ok() /p;/^promote_labelled_session()/,/^}$/p;/^ensure_shared_lock()/,/^}$/p' "$SCRIPTS/setup.sh")"
 G="" N=""
 printf 'TELEGRAM_API_ID=1\nTELEGRAM_API_HASH=x\nTELEGRAM_SESSION_STRING_PERSONAL=abc123\n' > "$TMP/tg.env"
 promote_labelled_session "$TMP/tg.env" >/dev/null
@@ -235,6 +235,10 @@ grep -qx 'TELEGRAM_SESSION_STRING=abc123' "$TMP/tg.env" && grep -q '^TELEGRAM_SE
   && pass "labelled Telegram session copied to the default name" || fail "labelled Telegram session copied to the default name" "$(cat "$TMP/tg.env")"
 promote_labelled_session "$TMP/tg.env" >/dev/null
 [[ "$(grep -c '^TELEGRAM_SESSION_STRING=' "$TMP/tg.env")" == 1 ]] && pass "default session not duplicated" || fail "default session not duplicated"
+ensure_shared_lock "$TMP/tg.env" >/dev/null; ensure_shared_lock "$TMP/tg.env" >/dev/null
+[[ "$(grep -c '^TELEGRAM_SESSION_LOCK=shared$' "$TMP/tg.env")" == 1 ]] && pass "shared session lock added once" || fail "shared session lock added once" "$(cat "$TMP/tg.env")"
+printf 'TELEGRAM_SESSION_LOCK=exclusive\n' > "$TMP/tg2.env"; ensure_shared_lock "$TMP/tg2.env" >/dev/null
+grep -qx 'TELEGRAM_SESSION_LOCK=exclusive' "$TMP/tg2.env" && pass "explicit session lock kept" || fail "explicit session lock kept"
 
 echo "== typst-gost"
 DOC="$TMP/doc"

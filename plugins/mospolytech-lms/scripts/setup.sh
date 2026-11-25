@@ -270,8 +270,21 @@ promote_labelled_session() {
   ok "сессия ${line%%=*} сохранена и как TELEGRAM_SESSION_STRING"
 }
 
+# Claude Code starts its own telegram-mcp for every session (and on Reconnect, before the old one
+# exits). With the default exclusive session lock the second process waits 20 s and quits, so the
+# server shows as failed. All of them run on this computer and reach Telegram from one IP, which is
+# the case telegram-mcp's "shared" lock is for. An explicit value already in .env is kept.
+ensure_shared_lock() {
+  local envf=$1
+  [[ -f "$envf" ]] || return 0
+  grep -q '^TELEGRAM_SESSION_LOCK=' "$envf" && return 0
+  (umask 077; printf 'TELEGRAM_SESSION_LOCK=shared\n' >> "$envf")
+  ok "TELEGRAM_SESSION_LOCK=shared добавлен в .env (несколько сессий Claude Code делят одну сессию Telegram)"
+}
+
 telegram() {
   local dir="$STATE/telegram-mcp" uv
+  ensure_shared_lock "$dir/.env"
   if mcp_registered telegram; then
     ok "telegram уже подключён к Claude Code — ничего не меняю"
     say "  (плагину нужен сервер с именем telegram; если он подключён с правом отправки, агенты всё равно только читают)"
@@ -317,6 +330,7 @@ telegram() {
     (umask 077; printf 'TELEGRAM_API_ID=%s\nTELEGRAM_API_HASH=%s\n' "$id" "$hash" > "$envf")
   fi
   chmod 600 "$envf" 2>/dev/null || true
+  ensure_shared_lock "$envf"
   promote_labelled_session "$envf"
   if ! grep -q '^TELEGRAM_SESSION_STRING=.' "$envf"; then
     tty_ok || die "Дальше нужен вход в Telegram. Запустите $(in_terminal telegram)"
