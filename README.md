@@ -113,6 +113,8 @@ Claude прочитает раздел [«Для Claude: как установи
 | Агент `lms-telegram-reader` (Haiku) | Читает Telegram-чаты группы — только если вы попросили и если подключён [telegram-mcp](#telegram-необязательно) |
 | Агент `lab-solver` (Opus) | Читает материалы задания, выполняет работу и собирает отчёт; в LMS ничего загрузить не может |
 | MCP-сервер `moodle` | [moodle-mcp](https://github.com/G36maid/moodle-mcp): курсы, задания, файлы, сдача |
+| MCP-сервер `telegram` (необязательно) | [telegram-mcp](https://github.com/chigwell/telegram-mcp): чтение учебных чатов, только чтение; ставится командой `setup.sh telegram` — см. [Telegram](#telegram) |
+| MCP-сервер `mospolytech` (необязательно) | [mospolytech-mcp](https://github.com/EDeev/mospolytech-mcp): расписание, сообщения и уведомления личного кабинета; работает в Docker, ставится командой `setup.sh lk` — см. [Личный кабинет](#личный-кабинет) |
 | Программа `unitask` | Канбан `progress.json` в терминале ([исходники](unitask/)); команда `unitask` добавляется в терминал сама |
 | `scripts/setup.sh` | Что установлено и установка необязательного: вход в LMS, Telegram, личный кабинет |
 | Шаблон `@local/mospolytech-gost` | Стиль по ГОСТ и титульник для Typst (лабораторная, практическая, реферат; номер и преподаватель — по желанию) |
