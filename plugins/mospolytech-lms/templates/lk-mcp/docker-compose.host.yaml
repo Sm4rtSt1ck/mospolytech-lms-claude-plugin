@@ -1,0 +1,17 @@
+# Linux with Docker Engine only (scripts/setup.sh adds this file there; Docker Desktop's "host" is its
+# own VM, not this computer). The server runs in the host network namespace, so its requests to the
+# student portal and rasp.dmami.ru go through this computer's routing and DNS exactly like any local
+# program: domain exclusions and split tunnelling of a VPN client apply to them.
+#   - the server listens on 127.0.0.1:${LK_PORT} itself (published ports do not apply in host mode);
+#   - Postgres stays in the compose network and is published on 127.0.0.1:${LK_DB_PORT} for it.
+services:
+  db:
+    ports:
+      - "127.0.0.1:${LK_DB_PORT}:5432"
+
+  mcp:
+    network_mode: host
+    ports: !reset []
+    environment:
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@127.0.0.1:${LK_DB_PORT}/${POSTGRES_DB}
+    command: ["python", "-m", "mospolytech_mcp.server", "--http", "--host", "127.0.0.1", "--port", "${LK_PORT}"]

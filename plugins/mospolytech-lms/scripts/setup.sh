@@ -21,6 +21,7 @@ TELEGRAM_MCP_TAG=v3.3.4          # PyPI "telegram-mcp" is a different project: a
 # not published yet, so the image is pinned by digest: the build of main at cb9fcd2, same as their prod.
 LK_IMAGE=ghcr.io/edeev/mospolytech-mcp@sha256:d8969cbda6162e7b8dbc83b32aa5020cd1a11257000b45aed3c653c53e40357b
 LK_PORT=8770                     # 8765 is telegram-mcp's default HTTP port
+LK_DB_PORT=8771                  # Postgres for the server in host network mode (127.0.0.1 only)
 
 is_windows() { case "$(uname -s)" in MINGW*|MSYS*|CYGWIN*) return 0 ;; esac; return 1; }
 is_wsl() { grep -qi microsoft /proc/version 2>/dev/null; }
@@ -190,17 +191,33 @@ docker_permission() {
 }
 
 # ---------------------------------------------------------------- lk
+# Docker Engine on Linux: the server joins the host network (docker-compose.host.yaml), so a VPN
+# client's domain exclusions apply to its requests. Docker Desktop's host network is its own VM, so
+# there the default bridge network stays.
+COMPOSE_ARGS=(-f docker-compose.yaml)
+lk_compose_files() {
+  local os
+  is_windows && return 0
+  [[ "$(uname -s)" == Linux ]] || return 0
+  os="$("${DOCKER[@]}" info --format '{{.OperatingSystem}}' 2>/dev/null)"
+  [[ "$os" == *"Docker Desktop"* ]] && return 0
+  COMPOSE_ARGS=(-f docker-compose.yaml -f docker-compose.host.yaml)
+}
+lk_compose() { (cd "$STATE/lk-mcp" && "${DOCKER[@]}" compose "${COMPOSE_ARGS[@]}" "$@"); }
+
 lk() {
   local dir="$STATE/lk-mcp"
   if [[ "${1:-}" == --down ]]; then
     [[ -f "$dir/docker-compose.yaml" ]] || die "сервер личного кабинета не устанавливался"
     ensure_docker
-    (cd "$dir" && "${DOCKER[@]}" compose down) && ok "сервер личного кабинета остановлен (данные сохранены)"
+    lk_compose_files
+    lk_compose down && ok "сервер личного кабинета остановлен (данные сохранены)"
     return
   fi
   ensure_docker
   mkdir -p "$dir" || die "не удалось создать $dir"
-  cp "$ROOT/templates/lk-mcp/docker-compose.yaml" "$dir/docker-compose.yaml"
+  cp "$ROOT/templates/lk-mcp/docker-compose.yaml" "$ROOT/templates/lk-mcp/docker-compose.host.yaml" "$dir/"
+  lk_compose_files
   if [[ ! -s "$dir/.env" ]]; then
     say "Создаю настройки сервера (пароль базы и ключ шифрования — случайные)…"
     local pw key
@@ -214,16 +231,20 @@ lk() {
   # A newer plugin may pin a newer image: rewrite only the image line, keep the generated secrets.
   grep -v -e '^LK_IMAGE=' -e '^APP_TAG=' "$dir/.env" > "$dir/.env.new"
   printf 'LK_IMAGE=%s\n' "$LK_IMAGE" >> "$dir/.env.new"
+  grep -q '^LK_DB_PORT=' "$dir/.env.new" || printf 'LK_DB_PORT=%s\n' "$LK_DB_PORT" >> "$dir/.env.new"
   (umask 077; cat "$dir/.env.new" > "$dir/.env"); rm -f "$dir/.env.new"
   say "Запускаю сервер личного кабинета (первый раз скачивается ~200 МБ)…"
-  (cd "$dir" && "${DOCKER[@]}" compose up -d) || die "docker compose up завершился ошибкой; подробности: cd \"$dir\" && docker compose logs"
+  if [[ "${COMPOSE_ARGS[*]}" == *host* ]]; then
+    say "Сервер работает в сети хоста: исключения доменов в VPN-клиенте действуют и на него."
+  fi
+  lk_compose up -d --remove-orphans || die "docker compose up завершился ошибкой; подробности: cd \"$dir\" && docker compose ${COMPOSE_ARGS[*]} logs"
   local i
   for i in $(seq 1 60); do
     curl -fsS "http://127.0.0.1:$LK_PORT/health" >/dev/null 2>&1 && break
     sleep 2
   done
   curl -fsS "http://127.0.0.1:$LK_PORT/health" >/dev/null 2>&1 \
-    || die "сервер не ответил на /health за 2 минуты; подробности: cd \"$dir\" && docker compose logs mcp"
+    || die "сервер не ответил на /health за 2 минуты; подробности: cd \"$dir\" && docker compose ${COMPOSE_ARGS[*]} logs mcp"
   ok "сервер работает: http://127.0.0.1:$LK_PORT (перезапускается вместе с Docker)"
 
   if mcp_registered mospolytech; then
