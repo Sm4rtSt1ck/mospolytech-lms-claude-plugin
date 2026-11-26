@@ -65,6 +65,21 @@ else
   mkdir -p "$WS/documents" "$WS/cache/courses" "$WS/fonts" 2>/dev/null \
     || warnings+=("mospolytech-lms: не удалось создать рабочую папку $WS_RAW.")
   [[ -f "$WS/profile.yaml" ]] || cp "$ROOT/profile.example.yaml" "$WS/profile.yaml" 2>/dev/null
+  # telegram.yaml lives next to profile.yaml from the start, so it is easy to find: an empty chat list
+  # plus the example from the plugin, commented out.
+  if [[ ! -f "$WS/telegram.yaml" && -f "$ROOT/telegram.example.yaml" ]]; then
+    {
+      echo "# Учебные чаты Telegram, которые плагин может читать (только чтение, через telegram-mcp)."
+      echo "# Заполните chats по образцу ниже или попросите Claude: «добавь чат … в telegram.yaml»."
+      echo "# Файл личный: в репозиторий плагина он не попадает."
+      echo
+      echo "chats: []"
+      echo "ignore: []"
+      echo
+      echo "# ---------- Образец (замените [] выше списком таких записей) ----------"
+      sed -n '/^chats:/,$p' "$ROOT/telegram.example.yaml" | sed 's/^/# /; s/^# $/#/'
+    } > "$WS/telegram.yaml" 2>/dev/null
+  fi
   [[ -f "$WS/cache/index.md" ]] || printf '# Курсы LMS\n\n| course_id | Полное название | shortname | Алиасы | Обновлён |\n|---|---|---|---|---|\n' > "$WS/cache/index.md"
 fi
 

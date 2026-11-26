@@ -14,7 +14,7 @@ model: sonnet
 |---|---|---|
 | `mospolytech-lms:lms-scout` | собирает кеш курса: карту, требования, список работ | `models.scout` из конфига (haiku) |
 | `mospolytech-lms:lab-history` | восстанавливает журнал работ курса по уже сделанным работам | `models.scout` (haiku) |
-| `mospolytech-lms:lms-telegram-reader` | читает Telegram, только по просьбе пользователя | `models.scout` (haiku) |
+| `mospolytech-lms:tg-reader` | читает Telegram о работе (режим «Работа»), только по просьбе пользователя | `models.telegram` (sonnet) |
 | `mospolytech-lms:lab-solver` | читает материалы задания, выполняет работу и оформляет отчёт | `models.solver` (opus), effort `models.solver_effort` |
 
 При вызове агента передавай `model` из конфига, а для `lab-solver` — ещё и `effort`: `models.solver_effort`, или `high`, если пользователь сказал, что работа большая/сложная. Агентам не нужен контекст этого разговора — передавай в промпте всё, что им нужно: пути, course_id, assignment_id, данные титульника, формат, имя файла.
@@ -35,7 +35,7 @@ model: sonnet
    - нет или устарел токен — пусть выполнит в отдельном окне терминала (не через `!` в Claude Code — там нет TTY) команду получения токена из того сообщения (Linux/macOS/WSL: `bash "${CLAUDE_PLUGIN_ROOT}/scripts/login.sh"`, Windows: `powershell -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}/scripts/login.ps1"`) и перезапустит сессию;
    - токен есть — `/mcp` → `plugin:mospolytech-lms:moodle` → Reconnect.
 
-   Сам эти скрипты не запускай: им нужен терминал для ввода пароля.
+   Сам эти скрипты не запускай: им нужен терминал для ввода пароля. **Логин, пароль или токен в чате никогда не проси** — ни от LMS, ни от личного кабинета. Если ЛК (инструменты `mcp__mospolytech__*`) отвечает «Invalid token» или «сессия истекла» — подскажи `setup.sh lk relogin`, а чтобы не повторялось — `setup.sh lk auto` (см. скилл `mospolytech-lms:settings`).
 
 ### Профиль: спросить один раз и запомнить
 
@@ -97,8 +97,8 @@ model: sonnet
    - Первая работа курса или все предыдущие уже в журнале — агента не вызывай.
 5. **Telegram — только если пользователь прямо попросил в этом запросе** («посмотри ещё в телеграме», «в чате группы писали…»). Без такой просьбы этот шаг пропускай, даже если Telegram подключён. Тогда:
    - нужен Telegram MCP [telegram-mcp](https://github.com/chigwell/telegram-mcp), подключённый под именем `telegram` (инструменты `mcp__telegram__*`). Его установка необязательна: если таких инструментов в сессии нет — скажи пользователю, что Telegram не подключён (как подключить — раздел «Telegram» в README плагина), и продолжай без него;
-   - чаты — из `<ws>/telegram.yaml`: сначала те, у которых в `course_ids` есть этот курс, затем те, у которых в `subjects` есть ключ предмета этого курса из `progress.json`, затем чаты с `read: always`. Файла нет, но в профиле остались старые `telegram.course_chats` / `telegram.chats` — возьми их и перенеси в `telegram.yaml` по образцу `${CLAUDE_PLUGIN_ROOT}/telegram.example.yaml`. Ничего не нашлось — спроси через AskUserQuestion, какие чаты читать (название, `@username` или ссылка), и уточни, для этого курса они или общие;
-   - вызови `mospolytech-lms:lms-telegram-reader` (model `models.scout`): чаты (с `about` и `topics` из `telegram.yaml`), название курса и его сокращения, номер и название работы, ФИО преподавателя, папка работы `<dir>`, файл для записи — `<dir>/telegram.md`;
+   - чаты — из `<ws>/telegram.yaml` (хук создаёт его при старте): сначала те, у которых в `course_ids` есть этот курс, затем те, у которых в `subjects` есть ключ предмета этого курса из `progress.json`, затем чаты с `read: always`. Если `chats` пуст, а в профиле остались старые `telegram.course_chats` / `telegram.chats` — перенеси их в `telegram.yaml` по образцу `${CLAUDE_PLUGIN_ROOT}/telegram.example.yaml` и удали из профиля. Ничего не нашлось — спроси через AskUserQuestion, какие чаты читать (название, `@username` или ссылка), и уточни, для этого курса они или общие;
+   - вызови `mospolytech-lms:tg-reader` (model `models.telegram`) с первой строкой `Режим: Работа` и входом: путь к `<ws>/telegram.yaml` и отобранные чаты, название курса и его сокращения, ключ предмета в `progress.json` и course_id, номер и название работы, ФИО преподавателя, папка работы `<dir>`, файл для записи — `<dir>/telegram.md`;
    - сохрани в `telegram.yaml` чаты в виде, который вернул агент (`id` и `name`; для этого курса — его id в `course_ids`), — в следующий раз ему не придётся их искать.
 
 ## 4. Согласовать перед выполнением

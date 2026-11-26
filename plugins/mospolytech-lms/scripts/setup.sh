@@ -9,6 +9,9 @@
 #   setup.sh lk               mospolytech-mcp in Docker: schedule, messages and notifications of the
 #                             student portal (lk.mospolytech.ru)
 #   setup.sh lk --down        stop the portal server (data is kept)
+#   setup.sh lk relogin       sign in to the portal again (the session expired)
+#   setup.sh lk auto          turn automatic portal re-login on or off
+#   setup.sh edit <что>       open a settings file: profile, telegram, progress, config, lk, tg
 #
 # Without a terminal (run by Claude) only the steps that need no input are done, and the script says
 # which command to run by hand. Every step is idempotent: running it again continues where it stopped.
@@ -121,6 +124,88 @@ status() {
     elif [[ "$derr" == *"permission denied"* ]]; then no "Docker работает, но у $USER нет доступа (группа docker) — setup.sh lk подскажет"
     else no "Docker установлен, но не запущен"; fi
   else no "Docker не установлен (нужен только для личного кабинета)"; fi
+  settings_status
+}
+
+# ---------------------------------------------------------------- settings files
+# The workspace: as the SessionStart hook last saw it ($DATA/env), else from the plugin settings.
+ws_dir() {
+  local ws="${CLAUDE_PLUGIN_OPTION_WORKSPACE_DIR:-}"
+  [[ -z "$ws" && -n "$DATA" && -f "$DATA/env" ]] && ws="$(sed -n 's/^LMS_WORKSPACE=//p' "$DATA/env")"
+  [[ -z "$ws" ]] && ws="$(workspace_dir)"
+  is_windows && [[ -n "$ws" ]] && ws="$(cygpath -u "$ws")"
+  printf '%s' "${ws/#\~/$HOME}"
+}
+progress_path() {
+  local p=""
+  [[ -n "$DATA" && -f "$DATA/env" ]] && p="$(sed -n 's/^LMS_PROGRESS_FILE=//p' "$DATA/env")"
+  [[ -z "$p" ]] && p="$1/progress.json"
+  printf '%s' "$p"
+}
+# settings_file <name>: path of a settings file by its short name.
+settings_file() {
+  local ws; ws="$(ws_dir)"
+  case "$1" in
+    profile)  [[ -n "$ws" ]] && printf '%s' "$ws/profile.yaml" ;;
+    telegram|chats) [[ -n "$ws" ]] && printf '%s' "$ws/telegram.yaml" ;;
+    progress) [[ -n "$ws" ]] && progress_path "$ws" ;;
+    config)   [[ -n "$ws" ]] && printf '%s' "$ws/config.yaml" ;;
+    lk)       printf '%s' "$STATE/lk-mcp/.env" ;;
+    tg)       printf '%s' "$STATE/telegram-mcp/.env" ;;
+    *) return 1 ;;
+  esac
+}
+settings_status() {
+  local ws f name what
+  ws="$(ws_dir)"
+  say ""
+  say "Настройки (setup.sh edit <имя> — открыть)"
+  if [[ -z "$ws" ]]; then no "рабочая папка не задана — /plugin → mospolytech-lms → Configure"; return; fi
+  say "  рабочая папка: $(native "$ws")"
+  for name in profile telegram progress config lk tg; do
+    f="$(settings_file "$name")"
+    case "$name" in
+      profile)  what="данные студента: группа, варианты, преподаватели, папка работ" ;;
+      telegram) what="учебные чаты Telegram и как их читать" ;;
+      progress) what="учёт задач (его показывает unitask)" ;;
+      config)   what="свои значения настроек плагина (модели, формат отчёта)" ;;
+      lk)       what="сервер личного кабинета: пароль базы, ключ, автовход" ;;
+      tg)       what="telegram-mcp: api_id, api_hash, сессия" ;;
+    esac
+    if [[ -f "$f" ]]; then printf '  %-9s %s\n            %s\n' "$name" "$what" "$(native "$f")"
+    else printf '  %-9s %s — нет файла\n' "$name" "$what"; fi
+  done
+}
+# Opens a file in the user's editor; without a terminal only prints the path.
+open_file() {
+  local f=$1
+  if tty_ok && [[ -n "${VISUAL:-${EDITOR:-}}" ]]; then "${VISUAL:-$EDITOR}" "$f"; return; fi
+  if command -v code >/dev/null; then code "$(native "$f")"; return; fi
+  if tty_ok; then
+    if is_windows; then start "" "$(native "$f")"; return; fi
+    if [[ "$(uname -s)" == Darwin ]]; then open -t "$f"; return; fi
+    command -v xdg-open >/dev/null && { xdg-open "$f" >/dev/null 2>&1 & return; }
+  fi
+  say "$(native "$f")"
+}
+edit_settings() {
+  local name="${1:-}" f
+  [[ -n "$name" ]] || die "что открыть: setup.sh edit profile|telegram|progress|config|lk|tg"
+  f="$(settings_file "$name")" || die "неизвестный файл настроек: $name (profile, telegram, progress, config, lk, tg)"
+  [[ -n "$f" ]] || die "рабочая папка не задана — /plugin → mospolytech-lms → Configure"
+  if [[ ! -f "$f" ]]; then
+    case "$name" in
+      config)
+        { echo "# Свои значения настроек плагина: всё, что не указано здесь, берётся из"
+          echo "# $(native "$ROOT/lms.config.yaml") — там же описание каждого параметра."
+          echo "# Пример:"
+          echo "# models:"
+          echo "#   solver_effort: high"; } > "$f" ;;
+      lk|tg) die "сервер ещё не устанавливался: setup.sh ${name/tg/telegram}" ;;
+      *) die "файла $(native "$f") ещё нет: он появится при следующем запуске Claude Code" ;;
+    esac
+  fi
+  open_file "$f"
 }
 
 # ---------------------------------------------------------------- docker
@@ -215,7 +300,7 @@ lk_sync_db_password() {
   db="$(sed -n 's/^POSTGRES_DB=//p' "$envf")"
   pw="$(sed -n 's/^POSTGRES_PASSWORD=//p' "$envf")"
   [[ -n "$user" && -n "$db" && "$pw" =~ ^[0-9a-f]+$ ]] || die "в $envf нет пароля базы; удалите файл и повторите setup.sh lk"
-  lk_compose up -d db || die "не удалось запустить базу; подробности: cd \"$STATE/lk-mcp\" && docker compose logs db"
+  lk_compose up -d db || die "не удалось запустить базу. Подробности:"$'\n'"  cd \"$STATE/lk-mcp\" && docker compose logs db"
   # The first start initialises the data directory with a temporary server; retry until it is done.
   for i in $(seq 1 30); do
     if printf "ALTER USER \"%s\" PASSWORD '%s';\n" "$user" "$pw" \
@@ -224,11 +309,86 @@ lk_sync_db_password() {
     fi
     sleep 2
   done
-  die "не удалось выставить пароль базы; подробности: cd \"$STATE/lk-mcp\" && docker compose logs db"
+  die "не удалось выставить пароль базы. Подробности:"$'\n'"  cd \"$STATE/lk-mcp\" && docker compose logs db"
+}
+
+# Automatic re-login: the portal drops sessions, and the server cannot renew them since the portal's
+# token API stopped answering, so it would need a manual /login again and again. With
+# LK_AUTO_RELOGIN=1 and MPU_LOGIN/MPU_PASSWORD (a mode mospolytech-mcp has for a personal server)
+# it signs in again by itself. The credentials go to lk-login.env (0600, read by compose as raw).
+lk_auto_config() {
+  local f="$STATE/lk-mcp/lk-login.env" login pw
+  tty_ok || die "Настройка автовхода спрашивает логин и пароль. Запустите $(in_terminal "lk auto")"
+  say ""
+  say "ЛК время от времени сбрасывает вход, и тогда нужно снова войти на http://127.0.0.1:$LK_PORT/login."
+  say "Сервер может делать это сам — для этого он хранит логин и пароль ЛК в файле"
+  say "  $(native "$f")"
+  say "(открытым текстом, доступ только у вас, никуда кроме сервера ЛК не уходят)."
+  if ! ask_yes "Входить в ЛК заново автоматически?"; then
+    (umask 077; printf 'LK_AUTO_RELOGIN=0\n' > "$f")
+    ok "автовход выключен (включить: setup.sh lk auto)"
+    return 0
+  fi
+  read -r -p "Логин ЛК: " login
+  [[ -n "$login" ]] || die "логин пустой"
+  read -r -s -p "Пароль ЛК (ввод скрыт): " pw; echo
+  [[ -n "$pw" ]] || die "пароль пустой"
+  (umask 077; printf 'LK_AUTO_RELOGIN=1\nMPU_LOGIN=%s\nMPU_PASSWORD=%s\n' "$login" "$pw" > "$f")
+  ok "автовход включён (выключить: setup.sh lk auto)"
+}
+
+# Registers the server in Claude Code with a key from the /login page (asks for it in a terminal).
+lk_register_key() {
+  local cmd="claude mcp add --scope user --transport http mospolytech http://127.0.0.1:$LK_PORT/mcp --header \"Authorization: Bearer <ключ mpk_…>\""
+  if ! tty_ok || ! have_claude; then
+    say "Затем выполните в терминале:"
+    say "  $cmd"
+    return 0
+  fi
+  local k
+  read -r -s -p "Вставьте ключ mpk_… (ввод скрыт${1:+; Enter — $1}): " k; echo
+  if [[ -z "$k" && -n "${1:-}" ]]; then ok "ключ прежний"; return 0; fi
+  [[ "$k" == mpk_* ]] || die "ключ должен начинаться с mpk_. Повторите команду"
+  claude mcp remove mospolytech --scope user >/dev/null 2>&1 || true
+  claude mcp add --scope user --transport http mospolytech "http://127.0.0.1:$LK_PORT/mcp" \
+    --header "Authorization: Bearer $k" >/dev/null || die "claude mcp add завершился ошибкой. Выполните вручную:"$'\n'"  $cmd"
+  mark_option connect_lk
+  ok "ключ сохранён в Claude Code. Перезапустите сессию Claude Code."
+}
+
+lk_open_login() {
+  local url="http://127.0.0.1:$LK_PORT/login"
+  say "Вход в личный кабинет: $url — войдите логином и паролем ЛК. Пароль уходит только на ваш"
+  say "локальный сервер; страница покажет ключ mpk_…"
+  if tty_ok; then
+    if is_windows; then start "" "$url" 2>/dev/null
+    elif [[ "$(uname -s)" == Darwin ]]; then open "$url" 2>/dev/null
+    elif command -v xdg-open >/dev/null; then xdg-open "$url" >/dev/null 2>&1 &
+    fi
+  fi
 }
 
 lk() {
   local dir="$STATE/lk-mcp"
+  case "${1:-}" in
+    relogin)
+      [[ -f "$dir/docker-compose.yaml" ]] || die "сервер личного кабинета не устанавливался: setup.sh lk"
+      curl -fsS "http://127.0.0.1:$LK_PORT/health" >/dev/null 2>&1 \
+        || die "сервер личного кабинета не отвечает. Запустите его: setup.sh lk"
+      lk_open_login
+      lk_register_key "ключ прежний"
+      grep -q '^LK_AUTO_RELOGIN=1' "$dir/lk-login.env" 2>/dev/null \
+        || say "Чтобы не входить вручную каждый раз: setup.sh lk auto"
+      return ;;
+    auto)
+      [[ -f "$dir/docker-compose.yaml" ]] || die "сервер личного кабинета не устанавливался: setup.sh lk"
+      ensure_docker
+      lk_compose_files
+      lk_auto_config
+      lk_compose up -d mcp >/dev/null 2>&1 || die "не удалось перезапустить сервер. Подробности:"$'\n'"  cd \"$dir\" && docker compose ${COMPOSE_ARGS[*]} logs mcp"
+      ok "сервер перезапущен с новыми настройками"
+      return ;;
+  esac
   if [[ "${1:-}" == --down ]]; then
     [[ -f "$dir/docker-compose.yaml" ]] || die "сервер личного кабинета не устанавливался"
     ensure_docker
@@ -255,42 +415,29 @@ lk() {
   printf 'LK_IMAGE=%s\n' "$LK_IMAGE" >> "$dir/.env.new"
   grep -q '^LK_DB_PORT=' "$dir/.env.new" || printf 'LK_DB_PORT=%s\n' "$LK_DB_PORT" >> "$dir/.env.new"
   (umask 077; cat "$dir/.env.new" > "$dir/.env"); rm -f "$dir/.env.new"
+  [[ -f "$dir/lk-login.env" ]] || { tty_ok && lk_auto_config; }
   say "Запускаю сервер личного кабинета (первый раз скачивается ~200 МБ)…"
   if [[ "${COMPOSE_ARGS[*]}" == *host* ]]; then
     say "Сервер работает в сети хоста: исключения доменов в VPN-клиенте действуют и на него."
   fi
   lk_sync_db_password
-  lk_compose up -d --remove-orphans || die "docker compose up завершился ошибкой; подробности: cd \"$dir\" && docker compose ${COMPOSE_ARGS[*]} logs"
+  lk_compose up -d --remove-orphans || die "docker compose up завершился ошибкой. Подробности:"$'\n'"  cd \"$dir\" && docker compose ${COMPOSE_ARGS[*]} logs"
   local i
   for i in $(seq 1 60); do
     curl -fsS "http://127.0.0.1:$LK_PORT/health" >/dev/null 2>&1 && break
     sleep 2
   done
   curl -fsS "http://127.0.0.1:$LK_PORT/health" >/dev/null 2>&1 \
-    || die "сервер не ответил на /health за 2 минуты; подробности: cd \"$dir\" && docker compose ${COMPOSE_ARGS[*]} logs mcp"
+    || die "сервер не ответил на /health за 2 минуты. Подробности:"$'\n'"  cd \"$dir\" && docker compose ${COMPOSE_ARGS[*]} logs mcp"
   ok "сервер работает: http://127.0.0.1:$LK_PORT (перезапускается вместе с Docker)"
 
   if mcp_registered mospolytech; then
     ok "mospolytech уже подключён к Claude Code"
     ask_yes "Подключить заново (например, с новым ключом)?" || return 0
-    claude mcp remove mospolytech --scope user >/dev/null 2>&1 || true
   fi
   say ""
-  say "Вход в личный кабинет: откройте в браузере http://127.0.0.1:$LK_PORT/login и войдите логином"
-  say "и паролем ЛК. Пароль уходит только на ваш локальный сервер; страница выдаст ключ mpk_…"
-  local cmd="claude mcp add --scope user --transport http mospolytech http://127.0.0.1:$LK_PORT/mcp --header \"Authorization: Bearer <ключ mpk_…>\""
-  if ! tty_ok || ! have_claude; then
-    say "Затем выполните в терминале:"
-    say "  $cmd"
-    return 0
-  fi
-  local k
-  read -r -s -p "Вставьте ключ mpk_… (ввод скрыт): " k; echo
-  [[ "$k" == mpk_* ]] || die "ключ должен начинаться с mpk_. Повторите setup.sh lk"
-  claude mcp add --scope user --transport http mospolytech "http://127.0.0.1:$LK_PORT/mcp" \
-    --header "Authorization: Bearer $k" >/dev/null || die "claude mcp add завершился ошибкой; выполните вручную: $cmd"
-  mark_option connect_lk
-  ok "личный кабинет подключён. Перезапустите сессию Claude Code."
+  lk_open_login
+  lk_register_key
 }
 
 # ---------------------------------------------------------------- telegram
@@ -435,6 +582,7 @@ case "${1:-}" in
   lms|login) shift; lms "$@" ;;
   telegram|tg) telegram ;;
   lk)        shift; lk "${1:-}" ;;
-  -h|--help|help) sed -n '2,16p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//' ;;
+  edit|open) shift; edit_settings "${1:-}" ;;
+  -h|--help|help) sed -n '2,/^set /p' "${BASH_SOURCE[0]}" | grep '^#' | sed 's/^# \{0,1\}//' ;;
   *) die "неизвестная команда: $1 (см. setup.sh --help)" ;;
 esac

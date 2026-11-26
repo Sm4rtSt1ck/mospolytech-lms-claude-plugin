@@ -38,6 +38,12 @@ services:
       DATABASE_URL: postgresql+psycopg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
       MCP_SECRET_KEY: ${MCP_SECRET_KEY}
       MCP_PUBLIC_URL: http://127.0.0.1:${LK_PORT}
+    # Optional automatic re-login (setup.sh lk auto): LK_AUTO_RELOGIN, MPU_LOGIN, MPU_PASSWORD.
+    # Raw format: a password with "$" must reach the server as typed.
+    env_file:
+      - path: ./lk-login.env
+        required: false
+        format: raw
     ports:
       - "127.0.0.1:${LK_PORT}:8000"
     depends_on:

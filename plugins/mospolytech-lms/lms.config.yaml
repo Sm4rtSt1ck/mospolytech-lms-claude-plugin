@@ -25,8 +25,10 @@ submission:
   mode: confirm-then-submit
 
 models:
-  # Сбор кеша курса, журнала прошлых работ и чтение Telegram — агенты lms-scout, lab-history, lms-telegram-reader.
+  # Сбор кеша курса и журнала прошлых работ — агенты lms-scout, lab-history.
   scout: haiku
+  # Чтение Telegram — агент tg-reader (и для поиска заданий, и для конкретной работы).
+  telegram: sonnet
   # Выполнение и оформление работы — агент lab-solver.
   solver: opus
   # medium — обычная лабораторная; high — большая работа (курсовая, много кода или расчётов).

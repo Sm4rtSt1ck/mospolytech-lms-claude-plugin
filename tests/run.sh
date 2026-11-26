@@ -110,6 +110,7 @@ for tool in moodle-mcp typst; do
   if [[ -x "$TMP/data/bin/$tool" || -x "$TMP/data/bin/$tool.exe" ]]; then pass "$tool present"; else fail "$tool present"; fi
 done
 [[ -f "$WS2/profile.yaml" && -f "$WS2/cache/index.md" && -d "$WS2/documents" ]] && pass "workspace created" || fail "workspace created"
+grep -q '^chats: \[\]' "$WS2/telegram.yaml" 2>/dev/null && grep -q '^# chats:' "$WS2/telegram.yaml" && pass "telegram.yaml template in the workspace" || fail "telegram.yaml template in the workspace"
 [[ -s "$TMP/data/ca-bundle.pem" ]] && pass "ca bundle" || fail "ca bundle"
 if command -v pandoc >/dev/null || [[ -x "$TMP/data/bin/pandoc" || -x "$TMP/data/bin/pandoc.exe" ]]; then pass "pandoc available"
 else fail "pandoc available" "$out"; fi
@@ -227,6 +228,17 @@ out="$(HOME="$TMP/shome" PATH=/usr/bin:/bin CLAUDE_PLUGIN_DATA="$TMP/data" bash 
 [[ $code == 0 && "$out" == *"moodle-mcp"* && "$out" == *"Telegram не подключён"* ]] && pass "status" || fail "status" "exit $code: $out"
 out="$(HOME="$TMP/shome" PATH=/usr/bin:/bin bash "$SCRIPTS/setup.sh" bogus 2>&1 </dev/null)"; code=$?
 [[ $code != 0 && "$out" == *"неизвестная команда"* ]] && pass "unknown command rejected" || fail "unknown command rejected" "$out"
+SD="$TMP/sdata"; SW="$TMP/sws"; mkdir -p "$SD/bin" "$SW"
+printf 'LMS_WORKSPACE=%s\nLMS_FONT_PATHS=\nLMS_PROGRESS_FILE=%s\n' "$SW" "$SW/progress.json" > "$SD/env"
+touch "$SW/profile.yaml" "$SW/progress.json"
+out="$(HOME="$TMP/shome" PATH=/usr/bin:/bin CLAUDE_PLUGIN_DATA="$SD" CLAUDE_PLUGIN_OPTION_WORKSPACE_DIR= bash "$SCRIPTS/setup.sh" status 2>&1 </dev/null)"
+[[ "$out" == *"Настройки"* && "$out" == *"$SW/profile.yaml"* && "$out" == *"config "*"нет файла"* ]] && pass "status lists settings files" || fail "status lists settings files" "$out"
+out="$(HOME="$TMP/shome" PATH=/usr/bin:/bin CLAUDE_PLUGIN_DATA="$SD" CLAUDE_PLUGIN_OPTION_WORKSPACE_DIR= VISUAL= EDITOR= bash "$SCRIPTS/setup.sh" edit config 2>&1 </dev/null)"
+[[ -f "$SW/config.yaml" && "$out" == *"$SW/config.yaml"* ]] && pass "edit config creates the file and prints its path" || fail "edit config creates the file and prints its path" "$out"
+out="$(HOME="$TMP/shome" PATH=/usr/bin:/bin CLAUDE_PLUGIN_DATA="$SD" bash "$SCRIPTS/setup.sh" edit nonsense 2>&1 </dev/null)"; code=$?
+[[ $code != 0 && "$out" == *"неизвестный файл настроек"* ]] && pass "edit rejects unknown names" || fail "edit rejects unknown names" "$out"
+out="$(HOME="$TMP/shome" PATH=/usr/bin:/bin CLAUDE_PLUGIN_DATA="$SD" bash "$SCRIPTS/setup.sh" lk relogin 2>&1 </dev/null)"; code=$?
+[[ $code != 0 && "$out" == *"не устанавливался"* ]] && pass "lk relogin without a server" || fail "lk relogin without a server" "$out"
 eval "$(sed -n '/^ok() /p;/^promote_labelled_session()/,/^}$/p;/^ensure_shared_lock()/,/^}$/p' "$SCRIPTS/setup.sh")"
 G="" N=""
 printf 'TELEGRAM_API_ID=1\nTELEGRAM_API_HASH=x\nTELEGRAM_SESSION_STRING_PERSONAL=abc123\n' > "$TMP/tg.env"
