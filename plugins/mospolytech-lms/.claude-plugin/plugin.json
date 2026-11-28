@@ -1,7 +1,7 @@
 {
   "name": "mospolytech-lms",
   "displayName": "Мосполитех LMS",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "Учёба в Московском Политехе: выполнение и сдача лабораторных в LMS (отчёт по ГОСТ в Typst, отправка после подтверждения), поиск заданий и сроков в личном кабинете и Telegram, учёт задач в progress.json и TUI-канбан unitask",
   "author": {
     "name": "Sm4rtSt1ck",
